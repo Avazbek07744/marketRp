@@ -1,23 +1,21 @@
 import axios from "axios";
 
 const lord = axios.create({
-    baseURL: "http://109.199.108.248:5000",
+    baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
 });
 
 lord.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem("token");
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
         if (token) {
             config.headers = {
-                ...config.headers, // mavjud headerlar yo‘qolmasin
+                ...config.headers,
                 Authorization: `Bearer ${token}`,
             };
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 export default lord;
