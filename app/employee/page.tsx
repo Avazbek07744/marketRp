@@ -54,18 +54,14 @@ interface categoryType {
   updatedDate: string,
 }
 
-interface SaleItem {
+export interface SaleItem {
   id: string;
-  shopId: string;
-  workerId: string;
-  workerFullName: string;
-  saleDate: string; // yoki Date, agar siz uni new Date(...) bilan ishlatsangiz
-  totalPrice: number;
-  isDeleted: boolean;
-  deletionReason: string | null;
-  items: any[]; // yoki aniq mahsulot item interfeysi bo‘lsa, uni yozing
-  createdDate: string;
-  updatedDate: string;
+  productId: string;
+  productName: string;
+  quantitySold: number;
+  priceAtSale: number;
+  itemTotalPrice: number;
+  unitOfMeasure: string;
 }
 
 
@@ -128,23 +124,6 @@ export default function EmployeePage() {
     }
   }, [router])
 
-
-  useEffect(() => {
-    const fetchSales = async () => {
-      if (!shopId) return;
-
-      try {
-        const response = await lord.get(`/api/sales/shop/${shopId}`);
-        console.log("Mahsulot:", response.data);
-      } catch (error) {
-        console.error("❌ Xatolik:", error);
-      }
-    };
-
-    fetchSales();
-  }, [token, shopId, load]);
-
-
   useEffect(() => {
     if (shopId) {
       const getProductsAndCategories = async () => {
@@ -166,34 +145,38 @@ export default function EmployeePage() {
   }, [token, shopId, load])
 
   useEffect(() => {
-    const fetchSales = async () => {
+    const fetchAllSalesItems = async () => {
+      if (activeTab !== "sales_history" || !shopId) return;
+
       try {
-        const response = await lord.get(`/api/sales/shop/${shopId}`);
-        setSalesHistory(response.data);
+        // 1. Barcha salesni olib kelamiz
+        const salesResponse = await lord.get(`/api/sales/shop/${shopId}`);
+        const sales = salesResponse.data;
+
+        // 2. Har bir sale.id bo‘yicha sale-items larni parallel olib kelamiz
+        const allItemsPromises = sales.map((sale: any) =>
+          lord.get(`/api/sale-items/sale/${sale.id}`).then(res => res.data)
+        );
+
+        const allItemsArrays = await Promise.all(allItemsPromises);
+
+        // 3. Barcha natijalarni bitta arrayga tekislab qo‘shamiz
+        const allItems = allItemsArrays.flat(); // barcha mahsulotlar
+
+        setSalesHistory(allItems);
       } catch (error) {
-        console.error("❌ Kategoriyalarni olishda xatolik:", error);
+        console.error("❌ Barcha sale-items larni olishda xatolik:", error);
       }
     };
 
-    if (shopId) {
-      fetchSales();
-    }
-  }, [activeTab, shopId]);
-
-
-  // const salesHistory = [
-  //   { id: 1, product: "Olma", quantity: 5, unit: "kg", price: 8000, total: 40000, time: "10:30", date: "2024-01-15" },
-  //   { id: 2, product: "Coca Cola", quantity: 10, unit: "piece", price: 5000, total: 50000, time: "11:15", date: "2024-01-15", },
-  //   { id: 3, product: "Sut", quantity: 3, unit: "liter", price: 7000, total: 21000, time: "12:00", date: "2024-01-15" },
-  // ]
-
+    fetchAllSalesItems();
+  }, [activeTab === "sales_history", shopId]);
 
   const handleLogout = () => {
     router.push("/login")
     localStorage.removeItem("token")
     localStorage.removeItem("shopId")
   }
-
 
   const addToCart = (product: any) => {
     const existingItem = cart.find((item) => item.id === product.id)
@@ -500,7 +483,6 @@ export default function EmployeePage() {
                         <TableHead className="font-semibold">Miqdor</TableHead>
                         <TableHead className="font-semibold">Narx</TableHead>
                         <TableHead className="font-semibold">Jami</TableHead>
-                        <TableHead className="font-semibold">Vaqt</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -509,17 +491,14 @@ export default function EmployeePage() {
                           key={sale.id}
                           className={`hover:bg-purple-50 dark:hover:bg-purple-900 ${index % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-purple-25 dark:bg-slate-750"}`}
                         >
-                          <TableCell className="font-medium">{sale.product}</TableCell>
+                          <TableCell className="font-medium capitalize">{sale.productName}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className="border-purple-300">
-                              {sale.quantity} {t(sale.unit)}
+                              {sale.quantitySold} {t(sale.unitOfMeasure)}
                             </Badge>
                           </TableCell>
-                          <TableCell>{sale.price} so'm</TableCell>
-                          <TableCell className="font-bold text-green-600">{sale.total} so'm</TableCell>
-                          <TableCell>
-                            <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500">{sale.time}</Badge>
-                          </TableCell>
+                          <TableCell>{sale.priceAtSale} so'm</TableCell>
+                          <TableCell className="font-bold text-green-600">{sale.itemTotalPrice} so'm</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
