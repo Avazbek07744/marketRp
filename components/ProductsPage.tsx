@@ -27,15 +27,34 @@ import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useEffect, useState } from "react"
+import lord from "@/axios"
+
+interface ProductType {
+    id: string;
+    name: string;
+    categoryId: string;
+    categoryName: string;
+    shopId: string;
+    unitOfMeasure: number;
+    unitOfMeasureString: string;
+    purchasePrice: number;
+    sellingPrice: number;
+    quantityInStock: number;
+    lowStockThreshold: number;
+    outOfStockThreshold: number;
+    createdDate: string;
+    updatedDate: string;
+    stockStatus: "In Stock" | "Low Stock" | "Out of Stock";
+    trending: string
+}
+
 
 const ProductsPage = () => {
     const { t } = useLanguage();
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-
     const [shopId, setShopId] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
-    const [product, setProduct] = useState([]);
+    const [product, setProduct] = useState<ProductType[]>([]);
     const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [unit, setUnit] = useState("");
@@ -56,18 +75,8 @@ const ProductsPage = () => {
 
         const getCategories = async () => {
             try {
-                const res = await fetch(`${baseUrl}/api/categories/shop/${shopId}`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (!res.ok) throw new Error("Serverdan noto‘g‘ri javob keldi");
-
-                const data = await res.json();
-                setCategories(data);
+                const res = await lord.get(`/api/categories/shop/${shopId}`);
+                setCategories(res.data);
             } catch (error) {
                 console.error("❌ Kategoriyalarni olishda xatolik:", error);
             }
@@ -76,24 +85,15 @@ const ProductsPage = () => {
         getCategories();
     }, [token, shopId]);
 
+
     // Mahsulotlarni olish
     useEffect(() => {
         if (!token || !shopId) return;
 
         const getProducts = async () => {
             try {
-                const res = await fetch(`${baseUrl}/api/product/shop/${shopId}`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (!res.ok) throw new Error("Serverdan noto‘g‘ri javob keldi");
-
-                const data = await res.json();
-                setProduct(data);
+                const res = await lord.get(`/api/product/shop/${shopId}`);
+                setProduct(res.data);
             } catch (error) {
                 console.error("❌ Mahsulotlarni olishda xatolik:", error);
             }
@@ -101,8 +101,6 @@ const ProductsPage = () => {
 
         getProducts();
     }, [token, shopId, load]);
-
-
 
     const handleAddProduct = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -131,27 +129,15 @@ const ProductsPage = () => {
             shopId,
         };
 
-        console.log("Yuborilayotgan data:", data);
-
         try {
-            const response = await fetch(`${baseUrl}/api/product`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(data),
-            });
-
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.Message || "Xatolik");
+            const response = await lord.post(`/api/product`, data);
 
             toast({
                 title: "✅ Qo‘shildi",
                 description: `📦 ${data.name} mahsuloti qo‘shildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error("❌ Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -179,24 +165,13 @@ const ProductsPage = () => {
         };
 
         try {
-            const response = await fetch(`${baseUrl}/api/product/${itemId}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(data),
-            });
-
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.Message || "Xatolik");
-
+            const response = await lord.put(`/api/product/${itemId}`, data);
             toast({
                 title: "✅ Yangilandi",
                 description: `✏️ ${data.sellingPrice} mahsuloti yangilandi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error("❌ Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -212,19 +187,14 @@ const ProductsPage = () => {
         if (!token) return console.error("Token topilmadi");
 
         try {
-            const response = await fetch(`${baseUrl}/api/product/${itemId}`, {
-                method: "DELETE",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const response = await lord.delete(`/api/product/${itemId}`);
 
             toast({
                 title: "✅ O‘chirildi",
                 description: `🗑️ ${itemId} mahsuloti o‘chirildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error("❌ Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -433,9 +403,9 @@ const ProductsPage = () => {
                                 </div>
                             )}
                             <div
-                                className={`h-2 bg-gradient-to-r ${product?.quantity === 0
+                                className={`h-2 bg-gradient-to-r ${product?.quantityInStock === 0
                                     ? "from-red-400 to-pink-400"
-                                    : product?.quantity <= 10
+                                    : product?.quantityInStock <= 10
                                         ? "from-yellow-400 to-orange-400"
                                         : "from-green-400 to-emerald-400"
                                     }`}
@@ -445,7 +415,7 @@ const ProductsPage = () => {
                                     <Package className="w-5 h-5 text-emerald-600" />
                                     <span>{product?.name}</span>
                                 </CardTitle>
-                                <CardDescription>{t(product?.category)}</CardDescription>
+                                <CardDescription>{t(product?.categoryName)}</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
@@ -472,37 +442,26 @@ const ProductsPage = () => {
                                                 <DialogDescription>Mahsulot ma'lumotlarini o'zgartiring</DialogDescription>
                                             </DialogHeader>
                                             <form onSubmit={(e) => handleEditProduct(e, product?.id)}>
-                                                <div className="grid gap-4 py-4">
+                                                <div className="grid grid-cols-2 gap-2 mb-6">
                                                     <div className="space-y-2">
-                                                        <Label htmlFor="edit_name">{t("name")}</Label>
+                                                        <Label htmlFor="edit_quantity">{t("quantity")}</Label>
                                                         <Input
-                                                            id="edit_name"
-                                                            name="name"
-                                                            defaultValue={product?.name}
+                                                            id="edit_quantity"
+                                                            name="quantity"
+                                                            type="number"
+                                                            defaultValue={product?.quantityInStock}
                                                             className="border-2 focus:border-emerald-400"
                                                         />
                                                     </div>
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor="edit_quantity">{t("quantity")}</Label>
-                                                            <Input
-                                                                id="edit_quantity"
-                                                                name="quantity"
-                                                                type="number"
-                                                                defaultValue={product?.quantity}
-                                                                className="border-2 focus:border-emerald-400"
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor="edit_price">{t("price")}</Label>
-                                                            <Input
-                                                                id="edit_price"
-                                                                name="price"
-                                                                type="number"
-                                                                defaultValue={product?.price}
-                                                                className="border-2 focus:border-emerald-400"
-                                                            />
-                                                        </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="edit_price">{t("price")}</Label>
+                                                        <Input
+                                                            id="edit_price"
+                                                            name="price"
+                                                            type="number"
+                                                            defaultValue={product?.sellingPrice}
+                                                            className="border-2 focus:border-emerald-400"
+                                                        />
                                                     </div>
                                                 </div>
 
@@ -532,7 +491,7 @@ const ProductsPage = () => {
                                             </DialogHeader>
                                             <DialogFooter>
                                                 <Button variant="outline">{t("cancel")}</Button>
-                                                <Button variant="destructive" onClick={() => handleDeleteProduct(product?.id)}>
+                                                <Button variant="destructive" onClick={() => handleDeleteProduct(product.id)}>
                                                     {t("delete")}
                                                 </Button>
                                             </DialogFooter>

@@ -8,6 +8,7 @@ import { AlertTriangle, XCircle, } from "lucide-react"
 import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useRouter } from 'next/navigation'
+import lord from '@/axios'
 
 interface ProductType {
     id: string;
@@ -18,7 +19,6 @@ interface ProductType {
 }
 
 const OutOfStockPage = () => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
     const [shopId, setShopId] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
@@ -43,18 +43,8 @@ const OutOfStockPage = () => {
 
         const getProducts = async () => {
             try {
-                const res = await fetch(`${baseUrl}/api/product/shop/${shopId}`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (!res.ok) throw new Error("Serverdan noto‘g‘ri javob keldi");
-
-                const data = await res.json();
-                setProduct(data);
+                const res = await lord.get(`/api/product/shop/${shopId}`);
+                setProduct(res.data);
             } catch (error) {
                 console.error("❌ Mahsulotlarni olishda xatolik:", error);
             }
@@ -62,6 +52,7 @@ const OutOfStockPage = () => {
 
         getProducts();
     }, [token, shopId]);
+
 
 
     function hendleClick() {

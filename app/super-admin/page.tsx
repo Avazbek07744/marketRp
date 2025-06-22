@@ -40,6 +40,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { DialogClose } from "@radix-ui/react-dialog"
+import lord from "@/axios"
 
 interface StoreType {
   id: string;
@@ -64,17 +65,8 @@ export default function SuperAdminPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("stores")
   const [searchTerm, setSearchTerm] = useState("")
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const [mounted, setMounted] = useState(false)
   const [stores, setStores] = useState<StoreType[]>([])
-  const [token, setToken] = useState<string | null>(null);
   const [refetchCount, setRefetchCount] = useState(0);
-
-  useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-
-    setToken(savedToken);
-  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -85,31 +77,15 @@ export default function SuperAdminPage() {
     }
   }, [router])
 
-
   useEffect(() => {
-    setMounted(true)
-    if (token) {
-      fetch(`${baseUrl}/api/shop`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application.json',
-          'Authorization': `Bearer ${token}`,
-        },
+    lord.get(`/api/shop`)
+      .then((response) => {
+        setStores(response.data);
       })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error("Serverdan noto‘g‘ri javob keldi");
-          }
-          return response.json();
-        })
-        .then(data => {
-          setStores(data)
-        })
-        .catch(error => {
-          console.log("fetchda hatolik bor:", error);
-        });
-    }
-  }, [refetchCount, token,activeTab]);
+      .catch((error) => {
+        console.log("fetchda hatolik bor:", error);
+      });
+  }, [refetchCount, activeTab]);
 
   const handleLogout = () => {
     router.push("/login")
@@ -131,26 +107,13 @@ export default function SuperAdminPage() {
     };
 
     try {
-      const res = await fetch(`${baseUrl}/api/shop`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application.json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!res.ok) throw new Error("Do'konni qo'shishda xatolik");
-      const result = await res.json();
-      localStorage.setItem("shopId", result.id)
-
+      const res = await lord.post("/api/shop", data);
 
       toast({
         title: "🎉 Muvaffaqiyatli",
         description: `Yangi do'kon qo'shildi: ${data.name}`,
         className: "border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950",
       });
-
     } catch (error) {
       toast({
         title: "❌ Xatolik",
@@ -163,17 +126,7 @@ export default function SuperAdminPage() {
 
   const deleteStore = async (storeId: string) => {
     try {
-      const token = localStorage.getItem("token")
-      const res = await fetch(`${baseUrl}/api/shop/${storeId}`, {
-        method: "DELETE",
-        headers: {
-          "Content-type": "aplication.json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
-
-      if (!res.ok) throw new Error("O‘chirishda xatolik");
-
+      const res = await lord.delete(`/api/shop/${storeId}`);
       toast({
         title: "🗑️ O‘chirildi",
         description: `${storeId} o‘chirildi`,
@@ -200,17 +153,7 @@ export default function SuperAdminPage() {
     }
   ) => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${baseUrl}/api/shop/${storeId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!res.ok) throw new Error("Tahrirlashda xatolik");
+      const res = await lord.put(`/api/shop/${storeId}`, formData);
 
       toast({
         title: "📝 Yangilandi",
@@ -237,28 +180,13 @@ export default function SuperAdminPage() {
     };
 
     try {
-      const token = localStorage.getItem("token");
-
-      const url = `${baseUrl}/api/shop/${action}/${storeId}`;
-
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) throw new Error("Amal bajarilmadi");
+      const url = lord.post(`/api/shop/${action}/${storeId}`);
 
       toast({
         title: "✅ Muvaffaqiyatli",
         description: messages[action],
         className: "border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950",
       });
-
-      // Optional: Sahifani yangilash yoki ma'lumotlarni qayta olish uchun
-      // await refetchShops(); 
 
     } catch (error) {
       toast({
@@ -269,8 +197,6 @@ export default function SuperAdminPage() {
       console.error(error);
     }
   };
-
-
 
   const getStatusBadge = (status: string) => {
     switch (status) {

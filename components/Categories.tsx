@@ -25,6 +25,7 @@ import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useEffect, useRef, useState } from "react"
+import lord from "@/axios"
 
 interface categoryType {
     id: string,
@@ -50,22 +51,19 @@ const Categories = () => {
         setToken(savedToken);
     }, []);
 
-    useEffect(() => {
-        if (token && shopId) {
-            fetch(`${baseUrl}/api/categories/shop/${shopId}`, {
-                method: "GET",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            })
-                .then(res => res.json())
-                .then(data => {
-                    setCategory(data);
-                })
-                .catch(error => {
-                    console.log(error);
-                });
-        }
+        useEffect(() => {
+        if (!token || !shopId) return;
+
+        const getProducts = async () => {
+            try {
+                const res = await lord.get(`/api/categories/shop/${shopId}`);
+                setCategory(res.data);
+            } catch (error) {
+                console.error("❌ Mahsulotlarni olishda xatolik:", error);
+            }
+        };
+
+        getProducts();
     }, [token, shopId, refetchCount]);
 
 
@@ -80,25 +78,14 @@ const Categories = () => {
         if (!dto.name) return toast({ title: "❗️Nomi bo‘sh bo‘lmasligi kerak", variant: "destructive" });
 
         try {
-            const response = await fetch(`${baseUrl}/api/categories`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(dto),
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) throw new Error(result.Message || "Xatolik");
+            const response = await lord.post(`${baseUrl}/api/categories`, dto);
 
             toast({
                 title: "✅ Qo‘shildi",
                 description: `📦 ${dto.name} categoriyasi qo‘shildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("❌ Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -127,25 +114,14 @@ const Categories = () => {
         if (!dto.name) return toast({ title: "❗️Nomi bo‘sh bo‘lmasligi kerak", variant: "destructive" });
 
         try {
-            const response = await fetch(`${baseUrl}/api/categories/${id}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(dto),
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) throw new Error(result.Message || "Xatolik");
+            const response = await lord.post(`/api/categories/${id}`, dto);
 
             toast({
                 title: "✅ Yangilandi",
                 description: `📦 ${dto.name} categoriyasi yangilandi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error) {
+        } catch (error:unknown) {
             console.error("❌ Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -161,17 +137,7 @@ const Categories = () => {
         if (!token) return console.error("Token yoki shopId topilmadi");
 
         try {
-            const response = await fetch(`${baseUrl}/api/categories/${id}`, {
-                method: "DELETE",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) throw new Error(result.Message || "Xatolik");
+            const response = await lord.delete(`/api/categories/${id}`)
 
             toast({
                 title: "✅ O‘chirildi",

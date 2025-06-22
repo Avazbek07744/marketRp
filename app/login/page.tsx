@@ -53,7 +53,7 @@ export default function Login() {
 
             localStorage.setItem("token", data.token)
 
-            router.push("/employee")
+            router.push("/super-admin")
 
         } catch (error: any) {
             toast({

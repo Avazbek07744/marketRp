@@ -25,15 +25,22 @@ import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useState } from "react"
+import lord from '@/axios'
+
+interface EntriseType {
+    fullName: string,
+    phoneNumber: string,
+    username: string,
+    password: string,
+}
 
 const EmployeesPage = () => {
     const { t } = useLanguage();
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
     const [shopId, setShopId] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [employees, setEmployees] = useState<any[]>([]);
-    const [refetchCount, setRefetchCount] = useState(0); 
+    const [refetchCount, setRefetchCount] = useState(0);
 
     useEffect(() => {
         const savedShopId = localStorage.getItem("shopId");
@@ -46,19 +53,54 @@ const EmployeesPage = () => {
     useEffect(() => {
         if (!token || !shopId) return;
 
-        fetch(`${baseUrl}/api/Users/shop/${shopId}/workers`, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-        })
-            .then((res) => {
-                if (!res.ok) throw new Error("Xatolik yuz berdi");
-                return res.json();
-            })
-            .then((data) => setEmployees(data))
-            .catch((err) => console.error("Xatolik:", err));
+        const fetchEmployees = async () => {
+            try {
+                const res = await lord.get(`/api/Users/shop/${shopId}/workers`);
+                setEmployees(res.data);
+            } catch (err: unknown) {
+                console.error("Xatolik:", err);
+            }
+        };
+
+        fetchEmployees();
     }, [shopId, token, refetchCount]);
+
+    function validate(data: EntriseType) {
+        if (!data.fullName || typeof data.fullName !== "string" || data.fullName.trim().length < 3) {
+            return toast({
+                title: "⚠️ Xatolik",
+                description: "Ism kamida 3 ta belgidan iborat bo‘lishi kerak",
+                variant: "destructive",
+            });
+        }
+
+        if (!data.phoneNumber || !/^\+998\d{9}$/.test(data.phoneNumber.toString())) {
+            return toast({
+                title: "⚠️ Xatolik",
+                description: "Telefon raqam +998 bilan boshlanib, jami 13 ta belgidan iborat bo‘lishi kerak",
+                variant: "destructive",
+            });
+        }
+
+        if (!data.username || typeof data.username !== "string" || data.username.trim().length < 4) {
+            return toast({
+                title: "⚠️ Xatolik",
+                description: "Username kamida 4 ta belgidan iborat bo‘lishi kerak",
+                variant: "destructive",
+            });
+        }
+
+        if (!data.password || typeof data.password !== "string" || data.password.trim().length < 6) {
+            return toast({
+                title: "⚠️ Xatolik",
+                description: "Parol kamida 6 ta belgidan iborat bo‘lishi kerak",
+                variant: "destructive",
+            });
+        }
+
+        return true
+    }
+
 
     const handleAddEmployee = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -67,55 +109,38 @@ const EmployeesPage = () => {
         const formData = new FormData(e.currentTarget);
         const entries = Object.fromEntries(formData.entries());
 
+        if (validate(entries) !== true) return;
+
+
         const data = {
-            fullName: entries.fullName,
-            phoneNumber: entries.phoneNumber,
-            username: entries.username,
-            password: entries.password,
+            fullName: entries.fullName.toString().trim(),
+            phoneNumber: entries.phoneNumber.toString().trim(),
+            username: entries.username.toString().trim(),
+            password: entries.password.toString(),
             role: 2,
             shopId,
             isActive: true,
         };
 
         try {
-            const response = await fetch(`${baseUrl}/api/auth/register-worker`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(data),
-            });
-
-            const resData = await response.json();
-
-            if (!response.ok) {
-                toast({
-                    title: "❌ Xatolik",
-                    description: resData.Message || "Qo‘shishda xatolik",
-                    variant: "destructive",
-                });
-                return;
-            }
+            const response = await lord.post(`/api/auth/register-worker`, data);
 
             toast({
                 title: "✅ Ishchi qo‘shildi",
                 description: `👤 ${data.fullName} ishchi qo‘shildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-
-            setRefetchCount(prev => prev + 1); // 👈 reload ro‘yxat
-        } catch (error) {
-            console.error("Xatolik:", error);
+        } catch (error: any) {
             toast({
                 title: "Xatolik",
-                description: "Serverga murojaat qilishda xatolik yuz berdi",
+                description: error?.Message,
                 variant: "destructive",
             });
-        }finally{
+        } finally {
             setRefetchCount(prev => prev + 1);
         }
     };
+
 
     const handleEditEmployee = async (
         e: React.FormEvent<HTMLFormElement>,
@@ -137,25 +162,7 @@ const EmployeesPage = () => {
         };
 
         try {
-            const response = await fetch(`${baseUrl}/Users/${itemId}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(data),
-            });
-
-            const resData = await response.json();
-
-            if (!response.ok) {
-                toast({
-                    title: "❌ Xatolik",
-                    description: resData.Message || "Tahrirlashda xatolik",
-                    variant: "destructive",
-                });
-                return;
-            }
+            const response = await lord.put(`/api/Users/${itemId}`, data);
 
             toast({
                 title: "✅ Yangilandi",
@@ -163,14 +170,14 @@ const EmployeesPage = () => {
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Xatolik:", error);
             toast({
                 title: "Xatolik",
                 description: "Serverga murojaat qilishda xatolik yuz berdi",
                 variant: "destructive",
             });
-        }finally{
+        } finally {
             setRefetchCount(prev => prev + 1);
         }
     };
@@ -179,23 +186,7 @@ const EmployeesPage = () => {
         if (!token) return console.warn("Token yo‘q");
 
         try {
-            const response = await fetch(`${baseUrl}/api/Users/${itemId}`, {
-                method: "DELETE",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            const resData = await response.json();
-
-            if (!response.ok) {
-                toast({
-                    title: "❌ Xatolik",
-                    description: resData.Message || "O‘chirishda xatolik",
-                    variant: "destructive",
-                });
-                return;
-            }
+            const response = await lord.delete(`/api/Users/${itemId}`)
 
             toast({
                 title: "✅ O‘chirildi",
@@ -203,19 +194,17 @@ const EmployeesPage = () => {
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Xatolik:", error);
             toast({
                 title: "Xatolik",
                 description: "Serverga murojaat qilishda xatolik yuz berdi",
                 variant: "destructive",
             });
-        }finally{
+        } finally {
             setRefetchCount(prev => prev + 1);
         }
     };
-
-
 
     return (
         <>

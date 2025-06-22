@@ -29,6 +29,7 @@ import StatisticsPage from "@/components/StatisticsPage"
 import LowStockPage from "@/components/LowStockPage";
 import OutOfStockPage from "@/components/OutOfStockPage";
 import Categories from "@/components/Categories"
+import lord from "@/axios"
 
 
 export default function StoreOwnerPage() {
@@ -100,27 +101,15 @@ export default function StoreOwnerPage() {
   }, [router])
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
-    fetch(`${baseUrl}/api/Users/GetShopId`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    })
+    lord.get("/api/Users/GetShopId")
       .then((response) => {
-        if (!response.ok) {
-          throw new Error('xatolik yuz berdi');
-        }
-        return response.json();
-      })
-      .then((data) => {
-        localStorage.setItem("shopId", data)
-        // console.log('Mahsulot:', data);
+        localStorage.setItem("shopId", response.data);
       })
       .catch((error) => {
-        console.error('Xatolik:', error);
+        console.error("Xatolik:", error);
       });
-  }, [])
+  }, []);
+
 
 
   // Mock data for charts
