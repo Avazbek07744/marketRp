@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter } from "next/navigation"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import lord from "@/axios"
 
 interface ProductType {
   id: string;
@@ -53,6 +54,21 @@ interface categoryType {
   updatedDate: string,
 }
 
+interface SaleItem {
+  id: string;
+  shopId: string;
+  workerId: string;
+  workerFullName: string;
+  saleDate: string; // yoki Date, agar siz uni new Date(...) bilan ishlatsangiz
+  totalPrice: number;
+  isDeleted: boolean;
+  deletionReason: string | null;
+  items: any[]; // yoki aniq mahsulot item interfeysi bo‘lsa, uni yozing
+  createdDate: string;
+  updatedDate: string;
+}
+
+
 export default function EmployeePage() {
   const { t, language, setLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
@@ -69,6 +85,7 @@ export default function EmployeePage() {
   const [products, setProducts] = useState<ProductType[]>([]);
   const [load, setLoad] = useState(false);
   const [categories, setCategories] = useState<categoryType[]>([])
+  const [salesHistory, setSalesHistory] = useState<SaleItem[]>([])
 
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
@@ -113,77 +130,62 @@ export default function EmployeePage() {
 
 
   useEffect(() => {
+    const fetchSales = async () => {
+      if (!shopId) return;
+
+      try {
+        const response = await lord.get(`/api/sales/shop/${shopId}`);
+        console.log("Mahsulot:", response.data);
+      } catch (error) {
+        console.error("❌ Xatolik:", error);
+      }
+    };
+
+    fetchSales();
+  }, [token, shopId, load]);
+
+
+  useEffect(() => {
     if (shopId) {
-      fetch(`${baseUrl}/api/sales/shop/${shopId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error('xatolik yuz berdi');
-          }
-          return response.json();
-        })
-        .then((data) => {
-          console.log('Mahsulot:', data);
-        })
-        .catch((error) => {
-          console.error('Xatolik:', error);
-        });
+      const getProductsAndCategories = async () => {
+        if (!shopId) return;
+
+        try {
+          const productRes = await lord.get(`/api/product/shop/${shopId}`);
+          setProducts(productRes.data); // axios avtomatik .json() qiladi
+
+          const categoryRes = await lord.get(`/api/categories/shop/${shopId}`);
+          setCategories(categoryRes.data);
+
+        } catch (error) {
+          console.error("❌ Ma'lumotlarni olishda xatolik:", error);
+        }
+      };
+      getProductsAndCategories();
     }
   }, [token, shopId, load])
 
   useEffect(() => {
+    const fetchSales = async () => {
+      try {
+        const response = await lord.get(`/api/sales/shop/${shopId}`);
+        setSalesHistory(response.data);
+      } catch (error) {
+        console.error("❌ Kategoriyalarni olishda xatolik:", error);
+      }
+    };
+
     if (shopId) {
-      fetch(`${baseUrl}/api/product/shop/${shopId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error('xatolik yuz berdi');
-          }
-          return response.json();
-        })
-        .then((data) => {
-          setProducts(data);
-        })
-        .catch((error) => {
-          console.error('Xatolik:', error);
-        });
+      fetchSales();
     }
+  }, [activeTab, shopId]);
 
-    if (token && shopId) {
-      fetch(`${baseUrl}/api/categories/shop/${shopId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error('xatolik yuz berdi');
-          }
-          return response.json();
-        })
-        .then((data) => {
-          setCategories(data);
-        })
-        .catch((error) => {
-          console.error('Xatolik:', error);
-        });
-    }
-  }, [token, shopId, load])
 
-  const salesHistory = [
-    { id: 1, product: "Olma", quantity: 5, unit: "kg", price: 8000, total: 40000, time: "10:30", date: "2024-01-15" },
-    { id: 2, product: "Coca Cola", quantity: 10, unit: "piece", price: 5000, total: 50000, time: "11:15", date: "2024-01-15", },
-    { id: 3, product: "Sut", quantity: 3, unit: "liter", price: 7000, total: 21000, time: "12:00", date: "2024-01-15" },
-  ]
+  // const salesHistory = [
+  //   { id: 1, product: "Olma", quantity: 5, unit: "kg", price: 8000, total: 40000, time: "10:30", date: "2024-01-15" },
+  //   { id: 2, product: "Coca Cola", quantity: 10, unit: "piece", price: 5000, total: 50000, time: "11:15", date: "2024-01-15", },
+  //   { id: 3, product: "Sut", quantity: 3, unit: "liter", price: 7000, total: 21000, time: "12:00", date: "2024-01-15" },
+  // ]
 
 
   const handleLogout = () => {
@@ -255,17 +257,42 @@ export default function EmployeePage() {
     return cart.reduce((total, item) => total + item.sellingPrice * item.quantity, 0);
   };
 
-  const handleCheckout = () => {
-    const totalAmount = getTotalAmount()
-    const itemCount = cart.length
+  const handleCheckout = async () => {
+    if (cart.length === 0) {
+      toast({
+        title: "❌ Savat bo‘sh",
+        description: "Iltimos, avval savatga mahsulot qo‘shing.",
+        className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
+      });
+      return;
+    }
 
-    toast({
-      title: "🎉 Savdo muvaffaqiyatli yakunlandi!",
-      description: `${itemCount} ta mahsulot, jami: ${totalAmount.toLocaleString()} so'm`,
-      className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
-    })
-    clearCart()
-  }
+    const payload = {
+      items: cart.map((item) => ({
+        productId: item.id, // yoki item.productId agar id boshqa bo‘lsa
+        quantity: item.quantity || 0,
+      })),
+    };
+
+    try {
+      const res = await lord.post(`/api/sales`, payload);
+
+      toast({
+        title: "✅ Buyurtma yuborildi!",
+        description: "Savatchadagi mahsulotlar muvaffaqiyatli yuborildi",
+        className: "border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950",
+      });
+
+      clearCart();
+
+    } catch (error: any) {
+      toast({
+        title: "❌ Xatolik",
+        description: error.Message || "Noma'lum xatolik yuz berdi",
+        className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
+      });
+    }
+  };
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -284,6 +311,7 @@ export default function EmployeePage() {
     }
     return colors[category as keyof typeof colors] || colors.other
   }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-900 pb-20">
@@ -487,8 +515,8 @@ export default function EmployeePage() {
                               {sale.quantity} {t(sale.unit)}
                             </Badge>
                           </TableCell>
-                          <TableCell>{sale.price.toLocaleString()} so'm</TableCell>
-                          <TableCell className="font-bold text-green-600">{sale.total.toLocaleString()} so'm</TableCell>
+                          <TableCell>{sale.price} so'm</TableCell>
+                          <TableCell className="font-bold text-green-600">{sale.total} so'm</TableCell>
                           <TableCell>
                             <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500">{sale.time}</Badge>
                           </TableCell>

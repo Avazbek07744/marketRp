@@ -207,9 +207,9 @@ const ProductsPage = () => {
     };
 
     const getStockStatus = (product: any) => {
-        if (product.quantity === 0) {
+        if (product.quantityInStock === 0) {
             return <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white border-0">Tugagan</Badge>;
-        } else if (product.quantity <= 10) {
+        } else if (product.quantityInStock <= 10) {
             return <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">Kam</Badge>;
         } else {
             return <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">Yetarli</Badge>;
@@ -262,7 +262,6 @@ const ProductsPage = () => {
                                         </SelectContent>
                                     </Select>
 
-                                    {/* 📌 MUHIM: categoryId formData ga tushishi uchun hidden input */}
                                     <input type="hidden" name="categoryId" value={selectedCategory} />
                                 </div>
 
