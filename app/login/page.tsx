@@ -9,6 +9,7 @@ import { Store } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { ToastAction } from "@/components/ui/toast"
 import { Toaster } from "@/components/ui/toaster"
+import lord from "@/axios"
 
 export default function Login() {
     const router = useRouter();
@@ -33,25 +34,9 @@ export default function Login() {
         setIsLoading(true)
 
         try {
-            const res = await fetch(`${baseUrl}/api/auth/login`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(formData),
-            })
+            const res = await lord.post(`/api/auth/login`,formData)
 
-            if (!res.ok) {
-                if (res.status === 401) {
-                    throw new Error("Login yoki parol noto‘g‘ri.")
-                } else {
-                    throw new Error("Noma'lum server xatoligi.")
-                }
-            }
-
-            const data = await res.json()
-
-            localStorage.setItem("token", data.token)
+            localStorage.setItem("token", res.data.token)
 
             router.push("/super-admin")
 

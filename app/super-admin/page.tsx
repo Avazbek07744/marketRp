@@ -173,7 +173,7 @@ export default function SuperAdminPage() {
   };
 
 
-  const handleStoreAction = async (action: "block" | "unblock", storeId: string) => {
+  const handleStoreAction = async (action: "unblock" | "block", storeId: string) => {
     const messages = {
       block: `🚫 Do'kon bloklandi`,
       unblock: `✅ Do'kon blokdan chiqarildi`,
@@ -188,7 +188,8 @@ export default function SuperAdminPage() {
         className: "border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950",
       });
 
-    } catch (error) {
+
+    } catch (error:unknown) {
       toast({
         title: "❌ Xatolik",
         description: "Amalni bajarishda xatolik yuz berdi",
