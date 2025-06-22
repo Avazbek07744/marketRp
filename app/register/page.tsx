@@ -19,7 +19,7 @@ export default function Register() {
         username: "",
         password: "",
         role: "",
-        shopId: "", 
+        shopId: "019787af-2659-7ca2-931f-a54b14f9d4b0", 
     })
 
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
@@ -38,13 +38,13 @@ export default function Register() {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    addUserDto: {
+                    dto: {
                         fullName: formData.fullName,
                         phoneNumber: formData.phoneNumber,
                         username: formData.username,
                         password: formData.password,
-                        role: formData.role, 
-                        shopId: null,
+                        role: formData.role,
+                        shopId: formData.shopId,
                     }
                 }),
             })
@@ -102,7 +102,7 @@ export default function Register() {
                             className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
                         />
                         <Input
-                            type="number"
+                            type="text"
                             // defaultValue='884662202'
                             placeholder="Telefon raqam"
                             value={formData.phoneNumber}

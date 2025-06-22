@@ -27,6 +27,32 @@ import { useRouter } from "next/navigation"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 
+interface ProductType {
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  shopId: string;
+  unitOfMeasure: number;
+  unitOfMeasureString: string;
+  purchasePrice: number;
+  sellingPrice: number;
+  quantityInStock: number;
+  lowStockThreshold: number;
+  outOfStockThreshold: number;
+  createdDate: string;
+  updatedDate: string;
+  stockStatus: "In Stock" | "Low Stock" | "Out of Stock";
+  rating?: number;
+  popular?: boolean;
+}
+
+interface categoryType {
+  id: string,
+  name: string,
+  updatedDate: string,
+}
+
 export default function EmployeePage() {
   const { t, language, setLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
@@ -37,10 +63,47 @@ export default function EmployeePage() {
   const [cart, setCart] = useState<any[]>([])
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [quantityInputs, setQuantityInputs] = useState<{ [key: number]: string }>({})
-
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [products, setProducts] = useState<ProductType[]>([]);
+  const [load, setLoad] = useState(false);
+  const [categories, setCategories] = useState<categoryType[]>([])
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
+    const savedToken = localStorage.getItem("token");
+    const savedShopId = localStorage.getItem("shopId");
+
+    setToken(savedToken);
+    setShopId(savedShopId);
+    setLoad(true)
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    fetch(`${baseUrl}/api/Users/GetShopId`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('xatolik yuz berdi');
+        }
+        return response.json();
+      })
+      .then((data) => {
+        localStorage.setItem("shopId", data)
+      })
+      .catch((error) => {
+        // console.error('Xatolik:', error);
+      });
+  }, [])
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
     const pathname = window.location.pathname
 
     if (!token && !pathname.includes("/register")) {
@@ -48,71 +111,87 @@ export default function EmployeePage() {
     }
   }, [router])
 
-  // Mock data
-  const products = [
-    { id: 1, name: "Olma", category: "fruits", quantity: 50, unit: "kg", price: 8000, rating: 4.8, popular: true },
-    {
-      id: 2,
-      name: "Sabzi",
-      category: "vegetables",
-      quantity: 25,
-      unit: "kg",
-      price: 3000,
-      rating: 4.2,
-      popular: false,
-    },
-    {
-      id: 3,
-      name: "Coca Cola",
-      category: "drinks",
-      quantity: 100,
-      unit: "piece",
-      price: 5000,
-      rating: 4.9,
-      popular: true,
-    },
-    { id: 4, name: "Sut", category: "dairy", quantity: 20, unit: "liter", price: 7000, rating: 4.6, popular: false },
-    { id: 5, name: "Banan", category: "fruits", quantity: 30, unit: "kg", price: 12000, rating: 4.7, popular: true },
-    {
-      id: 6,
-      name: "Piyoz",
-      category: "vegetables",
-      quantity: 40,
-      unit: "kg",
-      price: 2500,
-      rating: 4.1,
-      popular: false,
-    },
-  ]
+
+  useEffect(() => {
+    if (shopId) {
+      fetch(`${baseUrl}/api/sales/shop/${shopId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('xatolik yuz berdi');
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log('Mahsulot:', data);
+        })
+        .catch((error) => {
+          console.error('Xatolik:', error);
+        });
+    }
+  }, [token, shopId, load])
+
+  useEffect(() => {
+    if (shopId) {
+      fetch(`${baseUrl}/api/product/shop/${shopId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('xatolik yuz berdi');
+          }
+          return response.json();
+        })
+        .then((data) => {
+          setProducts(data);
+        })
+        .catch((error) => {
+          console.error('Xatolik:', error);
+        });
+    }
+
+    if (token && shopId) {
+      fetch(`${baseUrl}/api/categories/shop/${shopId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('xatolik yuz berdi');
+          }
+          return response.json();
+        })
+        .then((data) => {
+          setCategories(data);
+        })
+        .catch((error) => {
+          console.error('Xatolik:', error);
+        });
+    }
+  }, [token, shopId, load])
 
   const salesHistory = [
     { id: 1, product: "Olma", quantity: 5, unit: "kg", price: 8000, total: 40000, time: "10:30", date: "2024-01-15" },
-    {
-      id: 2,
-      product: "Coca Cola",
-      quantity: 10,
-      unit: "piece",
-      price: 5000,
-      total: 50000,
-      time: "11:15",
-      date: "2024-01-15",
-    },
+    { id: 2, product: "Coca Cola", quantity: 10, unit: "piece", price: 5000, total: 50000, time: "11:15", date: "2024-01-15", },
     { id: 3, product: "Sut", quantity: 3, unit: "liter", price: 7000, total: 21000, time: "12:00", date: "2024-01-15" },
   ]
 
-  const categories = [
-    { value: "all", label: "Barchasi" },
-    { value: "fruits", label: t("fruits") },
-    { value: "vegetables", label: t("vegetables") },
-    { value: "drinks", label: t("drinks") },
-    { value: "dairy", label: t("dairy") },
-    { value: "meat", label: t("meat") },
-    { value: "other", label: t("other") },
-  ]
 
   const handleLogout = () => {
     router.push("/login")
+    localStorage.removeItem("token")
+    localStorage.removeItem("shopId")
   }
+
 
   const addToCart = (product: any) => {
     const existingItem = cart.find((item) => item.id === product.id)
@@ -173,8 +252,8 @@ export default function EmployeePage() {
   }
 
   const getTotalAmount = () => {
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0)
-  }
+    return cart.reduce((total, item) => total + item.sellingPrice * item.quantity, 0);
+  };
 
   const handleCheckout = () => {
     const totalAmount = getTotalAmount()
@@ -190,7 +269,7 @@ export default function EmployeePage() {
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
+    const matchesCategory = selectedCategory === "all" || product.categoryName === selectedCategory
     return matchesSearch && matchesCategory
   })
 
@@ -289,26 +368,30 @@ export default function EmployeePage() {
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((category) => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
+                    <SelectItem
+                      key={category.id}
+                      value={category.name}
+                      disabled={category.name === "all"} // faqat 'meat' bo'lsa disable
+                    >
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map((product) => (
                 <Card
-                  key={product.id}
-                  className={`group cursor-pointer hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-0 overflow-hidden ${
-                    product.quantity === 0 ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                  onClick={() => product.quantity > 0 && addToCart(product)}
+                  key={product?.id}
+                  className={`group cursor-pointer hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-0 overflow-hidden ${product?.quantityInStock === 0 ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  onClick={() => product?.quantityInStock > 0 && addToCart(product)}
                 >
-                  <div className={`h-2 bg-gradient-to-r ${getCategoryColor(product.category)}`} />
+                  <div className={`h-2 bg-gradient-to-r ${getCategoryColor(product?.categoryName)}`} />
                   <CardHeader className="pb-3 relative">
-                    {product.popular && (
+                    {product?.popular && (
                       <div className="absolute top-2 right-2">
                         <Badge className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white border-0">
                           <Star className="w-3 h-3 mr-1" />
@@ -316,15 +399,17 @@ export default function EmployeePage() {
                         </Badge>
                       </div>
                     )}
-                    <CardTitle className="text-lg group-hover:text-blue-600 transition-colors">
-                      {product.name}
+                    <CardTitle className="text-lg capitalize group-hover:text-blue-600 transition-colors">
+                      {product?.name}
                     </CardTitle>
                     <CardDescription className="flex items-center space-x-2">
-                      <span>{t(product.category)}</span>
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs">{product.rating}</span>
-                      </div>
+                      <span>{t(product?.categoryName)}</span>
+                      {product?.rating && (
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                          <span className="text-xs">{product?.rating}</span>
+                        </div>
+                      )}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -332,29 +417,34 @@ export default function EmployeePage() {
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Narx:</span>
                         <span className="font-bold text-lg bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                          {product.price.toLocaleString("en-US")} so'm
+                          {product?.sellingPrice} so'm
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Mavjud:</span>
                         <Badge
                           variant={
-                            product.quantity > 10 ? "default" : product.quantity > 0 ? "secondary" : "destructive"
+                            product?.quantityInStock > product?.lowStockThreshold
+                              ? "default"
+                              : product?.quantityInStock > product?.outOfStockThreshold
+                                ? "secondary"
+                                : "destructive"
                           }
                         >
-                          {product.quantity} {t(product.unit)}
+                          {product?.quantityInStock} {t(product?.unitOfMeasureString)}
                         </Badge>
                       </div>
                       <div className="pt-2 border-t">
                         <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground group-hover:text-blue-600 transition-colors">
                           <ShoppingCart className="w-4 h-4" />
-                          <span>{product.quantity === 0 ? "Tugagan" : "Savatga qo'shish"}</span>
+                          <span>{product?.quantityInStock === 0 ? "Tugagan" : "Savatga qo'shish"}</span>
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               ))}
+
             </div>
           </div>
         )}
@@ -418,11 +508,10 @@ export default function EmployeePage() {
         <div className="flex items-center justify-around py-3">
           <Button
             variant={activeTab === "products" ? "default" : "ghost"}
-            className={`flex flex-col items-center space-y-1 h-auto py-2 px-4 rounded-xl transition-all ${
-              activeTab === "products"
-                ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
-                : "hover:bg-blue-100 dark:hover:bg-blue-900"
-            }`}
+            className={`flex flex-col items-center space-y-1 h-auto py-2 px-4 rounded-xl transition-all ${activeTab === "products"
+              ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+              : "hover:bg-blue-100 dark:hover:bg-blue-900"
+              }`}
             onClick={() => setActiveTab("products")}
           >
             <Package className="w-5 h-5" />
@@ -430,11 +519,10 @@ export default function EmployeePage() {
           </Button>
           <Button
             variant={activeTab === "sales_history" ? "default" : "ghost"}
-            className={`flex flex-col items-center space-y-1 h-auto py-2 px-4 rounded-xl transition-all ${
-              activeTab === "sales_history"
-                ? "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg"
-                : "hover:bg-purple-100 dark:hover:bg-purple-900"
-            }`}
+            className={`flex flex-col items-center space-y-1 h-auto py-2 px-4 rounded-xl transition-all ${activeTab === "sales_history"
+              ? "bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg"
+              : "hover:bg-purple-100 dark:hover:bg-purple-900"
+              }`}
             onClick={() => setActiveTab("sales_history")}
           >
             <History className="w-5 h-5" />
@@ -445,11 +533,15 @@ export default function EmployeePage() {
 
       {/* Cart Sidebar */}
       {isCartOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}>
+        <div
+          className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+          onClick={() => setIsCartOpen(false)}
+        >
           <div
             className="fixed right-0 top-0 h-full w-full sm:w-96 bg-white dark:bg-slate-900 border-l shadow-2xl animate-slide-in"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Header */}
             <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white">
               <h3 className="text-lg font-semibold flex items-center space-x-2">
                 <ShoppingCart className="w-5 h-5" />
@@ -465,11 +557,12 @@ export default function EmployeePage() {
               </Button>
             </div>
 
+            {/* Cart Items */}
             <div className="flex-1 overflow-auto p-4 max-h-[calc(100vh-200px)]">
               {cart.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8 space-y-4">
                   <ShoppingCart className="w-16 h-16 mx-auto opacity-50" />
-                  <p>Savat bo'sh</p>
+                  <p>{t("cart_empty") || "Savat bo‘sh"}</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -484,10 +577,10 @@ export default function EmployeePage() {
                             <div className="flex-1">
                               <h4 className="font-medium text-lg">{item.name}</h4>
                               <p className="text-sm text-muted-foreground">
-                                {item.price.toLocaleString()} so'm / {t(item.unit)}
+                                {item.sellingPrice.toLocaleString()} so'm / {t(item.unitOfMeasureString)}
                               </p>
                               <p className="text-sm font-semibold text-green-600">
-                                Jami: {(item.price * item.quantity).toLocaleString()} so'm
+                                Jami: {(item.sellingPrice * item.quantity).toLocaleString()} so'm
                               </p>
                             </div>
                             <Button
@@ -502,18 +595,20 @@ export default function EmployeePage() {
                           <div className="flex items-center space-x-2">
                             <div className="flex-1">
                               <Label htmlFor={`quantity-${item.id}`} className="text-xs font-medium">
-                                Miqdor
+                                {t("quantity") || "Miqdor"}
                               </Label>
                               <Input
                                 id={`quantity-${item.id}`}
                                 type="text"
                                 inputMode="decimal"
-                                // value={quantityInputs[item.id] || ""}  
-                                onChange={(e) => handleQuantityInputChange(item.id, e.target.value)}
+                                value={quantityInputs[item.id] || ""}
+                                onChange={(e) =>
+                                  handleQuantityInputChange(item.id, e.target.value)
+                                }
                                 className="text-center border-2 focus:border-blue-400 rounded-lg mt-2"
                               />
                               <span className="text-xs text-center text-muted-foreground block mt-1">
-                                {t(item.unit)}
+                                {t(item.unitOfMeasureString)}
                               </span>
                             </div>
                           </div>
@@ -525,6 +620,7 @@ export default function EmployeePage() {
               )}
             </div>
 
+            {/* Cart Footer */}
             {cart.length > 0 && (
               <div className="border-t p-4 space-y-4 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-slate-800 dark:to-blue-900">
                 <div className="flex justify-between text-xl font-bold">
@@ -554,6 +650,7 @@ export default function EmployeePage() {
           </div>
         </div>
       )}
+
 
       <Toaster />
     </div>

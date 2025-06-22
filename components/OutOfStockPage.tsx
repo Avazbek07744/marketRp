@@ -1,6 +1,6 @@
 "use client"
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,24 +10,58 @@ import { useLanguage } from "./language-provider"
 import { useRouter } from 'next/navigation'
 
 interface ProductType {
-    id: number;
+    id: string;
     name: string;
+    quantityInStock: number;
+    outOfStockThreshold: number;
     category: string;
-    quantity: number;
-    unit: string;
-    price: number;
-    lowStock: boolean;
-    trending: boolean;
 }
 
-interface OutOfStockPageProps {
-    data: ProductType[];
-}
+const OutOfStockPage = () => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-const OutOfStockPage: React.FC<OutOfStockPageProps> = ({ data }) => {
-    const outOfStockProducts = data.filter((p) => p.quantity === 0)
-    const { t, language, setLanguage } = useLanguage()
+    const [shopId, setShopId] = useState<string | null>(null);
+    const [token, setToken] = useState<string | null>(null);
+    const { t, language, setLanguage } = useLanguage();
+    const [product, setProduct] = useState<ProductType[]>([])
     const router = useRouter();
+    const outOfStockProducts = product.filter(
+        (p) => p.quantityInStock <= p.outOfStockThreshold
+    );
+
+
+    useEffect(() => {
+        const savedShopId = localStorage.getItem("shopId");
+        const savedToken = localStorage.getItem("token");
+
+        setShopId(savedShopId);
+        setToken(savedToken);
+    }, []);
+
+    useEffect(() => {
+        if (!token || !shopId) return;
+
+        const getProducts = async () => {
+            try {
+                const res = await fetch(`${baseUrl}/api/product/shop/${shopId}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!res.ok) throw new Error("Serverdan noto‘g‘ri javob keldi");
+
+                const data = await res.json();
+                setProduct(data);
+            } catch (error) {
+                console.error("❌ Mahsulotlarni olishda xatolik:", error);
+            }
+        };
+
+        getProducts();
+    }, [token, shopId]);
 
 
     function hendleClick() {

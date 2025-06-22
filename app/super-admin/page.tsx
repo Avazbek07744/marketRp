@@ -54,8 +54,8 @@ interface StoreType {
   nextPaymentDate: string;
   status: number;
   statusString: "Active" | "Blocked" | string;
-  premium?: boolean; // frontend uchun
-  revenue?: number;  // frontend uchun
+  premium?: boolean;
+  revenue?: number;
 }
 
 export default function SuperAdminPage() {
@@ -67,46 +67,53 @@ export default function SuperAdminPage() {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   const [mounted, setMounted] = useState(false)
   const [stores, setStores] = useState<StoreType[]>([])
+  const [token, setToken] = useState<string | null>(null);
+  const [refetchCount, setRefetchCount] = useState(0);
 
+  useEffect(() => {
+    const savedToken = localStorage.getItem("token");
 
-
-  // useEffect(() => {
-  //   const token = localStorage.getItem("token")
-  //   const pathname = window.location.pathname
-
-  //   if (!token && !pathname.includes("/register")) {
-  //     router.push("/login")
-  //   }
-  // }, [router])
-
+    setToken(savedToken);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token")
+    const pathname = window.location.pathname
+
+    if (!token && !pathname.includes("/register")) {
+      router.push("/login")
+    }
+  }, [router])
+
+
+  useEffect(() => {
     setMounted(true)
-    fetch(`${baseUrl}/api/shop`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        // 'mode': 'no-cors'
-        'Authorization': `Bearer ${token}`,
-      },
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error("Serverdan noto‘g‘ri javob keldi");
-        }
-        return response.json();
+    if (token) {
+      fetch(`${baseUrl}/api/shop`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application.json',
+          'Authorization': `Bearer ${token}`,
+        },
       })
-      .then(data => {
-        setStores(data)
-      })
-      .catch(error => {
-        console.log("fetchda hatolik bor:", error);
-      });
-  }, [activeTab]);
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Serverdan noto‘g‘ri javob keldi");
+          }
+          return response.json();
+        })
+        .then(data => {
+          setStores(data)
+        })
+        .catch(error => {
+          console.log("fetchda hatolik bor:", error);
+        });
+    }
+  }, [refetchCount, token,activeTab]);
 
   const handleLogout = () => {
     router.push("/login")
+    localStorage.removeItem("token")
   }
 
   const addStore = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -124,12 +131,10 @@ export default function SuperAdminPage() {
     };
 
     try {
-      const token = localStorage.getItem("token");
-
       const res = await fetch(`${baseUrl}/api/shop`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application.json",
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(data),
@@ -181,6 +186,8 @@ export default function SuperAdminPage() {
         className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
       });
       console.error(error);
+    } finally {
+      setRefetchCount(prev => prev + 1);
     }
   };
 
@@ -217,6 +224,8 @@ export default function SuperAdminPage() {
         className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
       });
       console.error(error);
+    } finally {
+      setRefetchCount(prev => prev + 1);
     }
   };
 
@@ -479,15 +488,21 @@ export default function SuperAdminPage() {
                             onSubmit={(e) => {
                               e.preventDefault();
                               const form = e.currentTarget;
+                              const elements = form.elements as typeof form.elements & {
+                                name: HTMLInputElement;
+                                location: HTMLInputElement;
+                                nextPaymentDate: HTMLInputElement;
+                              };
 
                               const formData = {
-                                name: form?.name?.value,
-                                location: form?.location?.value,
-                                nextPaymentDate: new Date(form?.nextPaymentDate?.value).toISOString(),
+                                name: elements.name.value,
+                                location: elements.location.value,
+                                nextPaymentDate: new Date(elements.nextPaymentDate.value).toISOString(),
                               };
 
                               editStore(store.id, formData);
                             }}
+
                             className="grid gap-4 py-4"
                           >
                             <div className="grid grid-cols-4 items-center gap-4">

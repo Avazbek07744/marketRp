@@ -21,6 +21,15 @@ export default function Login() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
+
+        if (!formData.phoneNumber || !formData.password) {
+            toast({
+                title: "Ma'lumot yetarli emas",
+                description: "Iltimos, login va parolni to‘ldiring",
+            });
+            return;
+        }
+
         setIsLoading(true)
 
         try {
@@ -42,22 +51,9 @@ export default function Login() {
 
             const data = await res.json()
 
-            console.log(data);
-            
-
-            // Tokenni localStorage yoki cookie ga saqlash (agar kerak bo‘lsa)
             localStorage.setItem("token", data.token)
 
-            // User role ga qarab sahifaga yo‘naltirish
-            if (data.role === "admin") {
-                router.push("/super-admin")
-            } else if (data.role === "owner") {
-                router.push("/")
-            } else if (data.role === "employee") {
-                router.push("/employee")
-            } else {
-                router.push("/") // fallback
-            }
+            router.push("/employee")
 
         } catch (error: any) {
             toast({
@@ -69,6 +65,7 @@ export default function Login() {
             setIsLoading(false)
         }
     }
+
 
     return (
         <div className="min-h-screen gradient-bg flex items-center justify-center p-4">

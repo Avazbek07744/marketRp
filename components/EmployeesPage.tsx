@@ -26,68 +26,43 @@ import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useState } from "react"
 
-interface ShopIdType {
-    id: string;
-}
-
-interface dataType {
-    fullName: string;
-    phoneNumber: string;
-    username: string;
-    password: string;
-}
-
-const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
+const EmployeesPage = () => {
     const { t } = useLanguage();
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+    const [shopId, setShopId] = useState<string | null>(null);
+    const [token, setToken] = useState<string | null>(null);
     const [employees, setEmployees] = useState<any[]>([]);
+    const [refetchCount, setRefetchCount] = useState(0); 
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
-        if (!token) return;
+        const savedShopId = localStorage.getItem("shopId");
+        const savedToken = localStorage.getItem("token");
 
-        fetch(`${baseUrl}/api/Users/all`, {
+        setShopId(savedShopId);
+        setToken(savedToken);
+    }, []);
+
+    useEffect(() => {
+        if (!token || !shopId) return;
+
+        fetch(`${baseUrl}/api/Users/shop/${shopId}/workers`, {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             },
         })
             .then((res) => {
-                if (!res.ok) throw new Error("xatolik yuz berdi");
+                if (!res.ok) throw new Error("Xatolik yuz berdi");
                 return res.json();
             })
             .then((data) => setEmployees(data))
             .catch((err) => console.error("Xatolik:", err));
-    }, [baseUrl]);
-    function Validate(arg: dataType): boolean {
-        if (arg.fullName.length < 3) {
-            alert("Full name kamida 3ta belgidan iborat bo‘lishi kerak");
-            return false;
-        }
+    }, [shopId, token, refetchCount]);
 
-        if (!/^\+998\d{9}$/.test(arg.phoneNumber)) {
-            alert("Telefon raqam +998 bilan boshlanishi va 12ta belgidan iborat bo‘lishi kerak");
-            return false;
-        }
-
-        if (!/^[a-zA-Z0-9._-]{4,}$/.test(arg.username)) {
-            alert("Username kamida 4ta belgi va faqat harf, raqam, `.` `-` `_` dan iborat bo‘lishi kerak");
-            return false;
-        }
-
-        if (arg.password.length < 6) {
-            alert("Parol kamida 6 ta belgidan iborat bo‘lishi kerak");
-            return false;
-        }
-
-        return true; // ✅ Hammasi yaxshi bo‘lsa
-    }
-
-
-    const handleAddEmployee = async (e: React.FormEvent<HTMLFormElement>,) => {
+    const handleAddEmployee = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const token = localStorage.getItem("token");
-        if (!token || !id) return console.warn("Token yoki shopId yo‘q");
+        if (!token || !shopId) return console.warn("Token yoki shopId yo‘q");
 
         const formData = new FormData(e.currentTarget);
         const entries = Object.fromEntries(formData.entries());
@@ -98,19 +73,18 @@ const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
             username: entries.username,
             password: entries.password,
             role: 2,
-            shopId: "01978759-b346-71b2-8ad3-f014c446a525",
+            shopId,
+            isActive: true,
         };
 
-        console.log("Yuborilayotgan DTO:", data);
-
         try {
-            const response = await fetch(`${baseUrl}/api/Users`, {
+            const response = await fetch(`${baseUrl}/api/auth/register-worker`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({ dto: data }),
+                body: JSON.stringify(data),
             });
 
             const resData = await response.json();
@@ -129,6 +103,8 @@ const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
                 description: `👤 ${data.fullName} ishchi qo‘shildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
+
+            setRefetchCount(prev => prev + 1); // 👈 reload ro‘yxat
         } catch (error) {
             console.error("Xatolik:", error);
             toast({
@@ -136,6 +112,8 @@ const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
                 description: "Serverga murojaat qilishda xatolik yuz berdi",
                 variant: "destructive",
             });
+        }finally{
+            setRefetchCount(prev => prev + 1);
         }
     };
 
@@ -144,25 +122,22 @@ const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
         itemId: string | number,
     ) => {
         e.preventDefault();
-        const token = localStorage.getItem("token");
-        if (!token || !id) return console.warn("Token yoki shopId yo‘q");
+        if (!token || !shopId) return console.warn("Token yoki shopId yo‘q");
 
         const formData = new FormData(e.currentTarget);
         const entries = Object.fromEntries(formData.entries());
 
         const data = {
-            fullName: String(entries.fullName).trim(),
-            username: String(entries.username).trim(),
-            password: String(entries.password || "").trim(),
-            role: "Employee",
-            shopId: id,
+            fullName: String(entries.fullName),
+            phoneNumber: String(entries.phoneNumber),
+            username: String(entries.username),
+            role: 2,
+            shopId,
             isActive: true,
         };
 
-        console.log("Yuborilayotgan DTO (edit):", data);
-
         try {
-            const response = await fetch(`${baseUrl}/api/Users/${itemId}`, {
+            const response = await fetch(`${baseUrl}/Users/${itemId}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -187,6 +162,7 @@ const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
                 description: `✏️ ${data.fullName} ishchi yangilandi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
+
         } catch (error) {
             console.error("Xatolik:", error);
             toast({
@@ -194,13 +170,12 @@ const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
                 description: "Serverga murojaat qilishda xatolik yuz berdi",
                 variant: "destructive",
             });
+        }finally{
+            setRefetchCount(prev => prev + 1);
         }
     };
 
-    const handleDeleteEmployee = async (
-        itemId: string | number,
-    ) => {
-        const token = localStorage.getItem("token");
+    const handleDeleteEmployee = async (itemId: string | number) => {
         if (!token) return console.warn("Token yo‘q");
 
         try {
@@ -227,6 +202,7 @@ const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
                 description: `🗑️ ${itemId} ishchi o‘chirildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
+
         } catch (error) {
             console.error("Xatolik:", error);
             toast({
@@ -234,8 +210,11 @@ const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
                 description: "Serverga murojaat qilishda xatolik yuz berdi",
                 variant: "destructive",
             });
+        }finally{
+            setRefetchCount(prev => prev + 1);
         }
     };
+
 
 
     return (
@@ -317,7 +296,7 @@ const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {employees.length > 0 && employees.map((employee) => (
+                    {employees.length > 0 ? employees.map((employee) => (
                         <Card
                             key={employee.id}
                             className="border-0 shadow-xl bg-gradient-to-br from-white to-blue-50 dark:from-slate-800 dark:to-blue-900 overflow-hidden relative"
@@ -443,7 +422,7 @@ const EmployeesPage: React.FC<ShopIdType> = ({ id }) => {
                                 </div>
                             </CardContent>
                         </Card>
-                    ))}
+                    )) : <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent m-10">Loading....</p>}
                 </div>
             </div>
             <Toaster />

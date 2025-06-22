@@ -32,55 +32,11 @@ import Categories from "@/components/Categories"
 
 
 export default function StoreOwnerPage() {
-  const token = "eyJhbGciOiJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGRzaWctbW9yZSNobWFjLXNoYTI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImExYjJjM2Q0LWU1ZjYtNzc4OC05OTAwLWFhYmJjY2RkZWVmZiIsInVzZXJuYW1lIjoib3liZWttdXh0b3JhbGl5ZXYiLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiT3liZWsgTXV4dG9yYWxpeWV2IiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiU3VwZXJBZG1pbiIsImV4cCI6MTc1MDM2MzUzOSwiaXNzIjoiaHR0cDovL0FraWZNYXJrZXRDUk0udXoiLCJhdWQiOiJBa2lmTWFya2V0Q1JNIn0.18ft-fLhq35ttepC3WcRIF26_2iUL4glWhpchDVTEeM"
-
-
-  useEffect(() => {
-    localStorage.setItem("token", token)
-  }, [])
-
-
-  const [fetchedData, setFetchedData] = useState([
-    { id: 1, name: "Olma", category: "fruits", quantity: 50, unit: "kg", price: 8000, lowStock: false, trending: true },
-    {
-      id: 2,
-      name: "Sabzi",
-      category: "vegetables",
-      quantity: 5,
-      unit: "kg",
-      price: 3000,
-      lowStock: true,
-      trending: false,
-    },
-    {
-      id: 3,
-      name: "Coca Cola",
-      category: "drinks",
-      quantity: 0,
-      unit: "piece",
-      price: 5000,
-      lowStock: false,
-      trending: true,
-    },
-    {
-      id: 4,
-      name: "Sut",
-      category: "dairy",
-      quantity: 20,
-      unit: "liter",
-      price: 7000,
-      lowStock: false,
-      trending: false,
-    },
-    { id: 5, name: "Trup", category: "vegetables", quantity: 10, unit: "kg", price: 8000, lowStock: false, trending: true },
-  ])
-
   const { t, language, setLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState("category")
+  const [activeTab, setActiveTab] = useState("dashboard")
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const shopId = '01978759-b346-71b2-8ad3-f014c446a525'
 
   const statistics = {
     weeklyData: [
@@ -117,37 +73,54 @@ export default function StoreOwnerPage() {
     ],
   };
 
+  useEffect(() => {
+    localStorage.setItem("loginTime", Date.now().toString());
 
-  // useEffect(() => {
-  //   const token = localStorage.getItem("token")
-  //   const pathname = window.location.pathname
+    // 30 daqiqadan so‘ng localStorage ni tozalovchi setTimeout
+    setTimeout(() => {
+      localStorage.clear();
+      console.log("⏳ 30 daqiqa o‘tdi. localStorage tozalandi.");
+      // Agar kerak bo‘lsa, foydalanuvchini logout qilish yoki sahifani refresh qilish
+      // window.location.reload();
+      // yoki
+      // router.push("/login");
+    }, 30 * 60 * 1000); // 30 minut = 1800000 millisekund
 
-  //   if (!token && !pathname.includes("/register")) {
-  //     router.push("/login")
-  //   }
-  // }, [router])
+  }, []);
 
-  // useEffect(()=>{
-  //       fetch(`${baseUrl}/api/product/${shopId}`, {
-  //               method: 'GET',
-  //               headers: {
-  //                   'Content-Type': 'application/json',
-  //                   'Authorization': `Bearer ${token}`,
-  //               },
-  //           })
-  //               .then((response) => {
-  //                   if (!response.ok) {
-  //                       throw new Error('O‘chirishda xatolik yuz berdi');
-  //                   }
-  //                   return response.json();
-  //               })
-  //               .then((data) => {
-  //                   console.log('Mahsulot o‘chirildi:', data);
-  //               })
-  //               .catch((error) => {
-  //                   console.error('Xatolik:', error);
-  //               });
-  //   },[])
+
+
+  useEffect(() => {
+    const token = localStorage.getItem("token")
+    const pathname = window.location.pathname
+
+    if (!token && !pathname.includes("/register")) {
+      router.push("/login")
+    }
+  }, [router])
+
+  useEffect(() => {
+    const token = localStorage.getItem("token")
+    fetch(`${baseUrl}/api/Users/GetShopId`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('xatolik yuz berdi');
+        }
+        return response.json();
+      })
+      .then((data) => {
+        localStorage.setItem("shopId", data)
+        // console.log('Mahsulot:', data);
+      })
+      .catch((error) => {
+        console.error('Xatolik:', error);
+      });
+  }, [])
 
 
   // Mock data for charts
@@ -155,6 +128,7 @@ export default function StoreOwnerPage() {
   const handleLogout = () => {
     router.push("/login")
     localStorage.removeItem("token")
+    localStorage.removeItem("shopId")
   }
 
   return (
@@ -320,15 +294,15 @@ export default function StoreOwnerPage() {
 
         {activeTab === "products" && <ProductsPage />}
 
-        {activeTab === "employees" && <EmployeesPage id={shopId} />}
+        {activeTab === "employees" && <EmployeesPage />}
 
         {activeTab === "statistics" && <StatisticsPage data={statistics} />}
 
-        {activeTab === "low_stock" && <LowStockPage data={fetchedData} />}
+        {activeTab === "low_stock" && <LowStockPage />}
 
-        {activeTab === "out_of_stock" && <OutOfStockPage data={fetchedData} />}
+        {activeTab === "out_of_stock" && <OutOfStockPage />}
 
-        {activeTab === "category" && <Categories />}
+        {activeTab === "categoriya" && <Categories />}
       </main>
 
       {/* Bottom Navigation */}
@@ -407,12 +381,12 @@ export default function StoreOwnerPage() {
           </Button>
 
           <Button
-            variant={activeTab === "category" ? "default" : "ghost"}
-            className={`flex flex-col items-center space-y-1 h-auto py-2 px-2 text-xs rounded-xl transition-all ${activeTab === "low_stock"
-              ? "bg-gradient-to-r from-yellow-500 to-orange-600 text-white shadow-lg"
-              : "hover:bg-yellow-100 dark:hover:bg-yellow-900"
+            variant={activeTab === "categoriya" ? "default" : "ghost"}
+            className={`flex flex-col items-center space-y-1 h-auto py-2 px-2 text-xs rounded-xl transition-all ${activeTab === "category"
+              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+              : "hover:bg-blue-100 dark:hover:bg-blue-900"
               }`}
-            onClick={() => setActiveTab("category")}
+            onClick={() => setActiveTab("categoriya")}
           >
             <AlertTriangle className="w-4 h-4" />
             <span>Category</span>

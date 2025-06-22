@@ -28,43 +28,34 @@ import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useEffect, useState } from "react"
 
-interface ProductType {
-    id: number;
-    name: string;
-    category: string;
-    quantity: number;
-    unit: string;
-    price: number;
-    lowStock: boolean;
-    trending: boolean;
-}
-
 const ProductsPage = () => {
-    const shopId = localStorage.getItem("shopId")
-    const { t, language, setLanguage } = useLanguage()
-    const [searchTerm, setSearchTerm] = useState("")
-    const [product, setProduct] = useState([])
-    const [categories, setCategories] = useState([
-        { value: "all", label: "Barchasi" },
-        { value: "fruits", label: t("fruits") },
-        { value: "vegetables", label: t("vegetables") },
-        { value: "drinks", label: t("drinks") },
-        { value: "dairy", label: t("dairy") },
-        { value: "meat", label: t("meat") },
-        { value: "other", label: t("other") },
-    ]
-    )
-    const [selectedCategory, setSelectedCategory] = useState("all")
+    const { t } = useLanguage();
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-    console.log(shopId);
 
+    const [shopId, setShopId] = useState<string | null>(null);
+    const [token, setToken] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [product, setProduct] = useState([]);
+    const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState("all");
+    const [unit, setUnit] = useState("");
+    const [load, setLoad] = useState(false);
 
+    // Token va shopId ni localStorage dan olish
     useEffect(() => {
+        const savedShopId = localStorage.getItem("shopId");
+        const savedToken = localStorage.getItem("token");
+
+        setShopId(savedShopId);
+        setToken(savedToken);
+    }, []);
+
+    // Kategoriyalarni olish
+    useEffect(() => {
+        if (!token || !shopId) return;
+
         const getCategories = async () => {
             try {
-                const token = localStorage.getItem("token");
-                if (!token || !shopId) throw new Error("Token yoki shopId yo‘q");
-
                 const res = await fetch(`${baseUrl}/api/categories/shop/${shopId}`, {
                     method: "GET",
                     headers: {
@@ -76,55 +67,61 @@ const ProductsPage = () => {
                 if (!res.ok) throw new Error("Serverdan noto‘g‘ri javob keldi");
 
                 const data = await res.json();
-                console.log("Kategoriya ma'lumotlari:", data);
-
-                // setProduct(data); // ← agar kerak bo‘lsa
+                setCategories(data);
             } catch (error) {
-                console.error("fetchda hatolik bor:", error);
+                console.error("❌ Kategoriyalarni olishda xatolik:", error);
             }
         };
 
         getCategories();
-    }, []);
+    }, [token, shopId]);
 
-    // useEffect(() => {
-    //     const token = localStorage.getItem("token")
-    //     fetch(`${baseUrl}/api/product/shop/${shopId}`, {
-    //         method: 'GET',
-    //         headers: {
-    //             'Content-Type': 'application/json',
-    //             'Authorization': `Bearer ${token}`,
-    //         },
-    //         body: JSON.stringify({ dto: shopId })
-    //     })
-    //         .then(response => {
-    //             if (!response.ok) {
-    //                 throw new Error("Serverdan noto‘g‘ri javob keldi");
-    //             }
-    //             return response.json();
-    //         })
-    //         .then(data => {
-    //             setProduct(data)
-    //         })
-    //         .catch(error => {
-    //             console.log("fetchda hatolik bor:", error);
-    //         });
-    // }, []);
+    // Mahsulotlarni olish
+    useEffect(() => {
+        if (!token || !shopId) return;
+
+        const getProducts = async () => {
+            try {
+                const res = await fetch(`${baseUrl}/api/product/shop/${shopId}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!res.ok) throw new Error("Serverdan noto‘g‘ri javob keldi");
+
+                const data = await res.json();
+                setProduct(data);
+            } catch (error) {
+                console.error("❌ Mahsulotlarni olishda xatolik:", error);
+            }
+        };
+
+        getProducts();
+    }, [token, shopId, load]);
 
 
-    const handleAddProduct = async (
-        e: React.FormEvent<HTMLFormElement>,
-    ) => {
+
+    const handleAddProduct = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const token = localStorage.getItem("token");
         if (!token || !shopId) return console.error("Token yoki shopId topilmadi");
+
+        if (!selectedCategory || selectedCategory === "all") {
+            return toast({
+                title: "Kategoriya tanlanmadi",
+                description: "Iltimos, mahsulot uchun kategoriya tanlang.",
+                variant: "destructive",
+            });
+        }
 
         const formData = new FormData(e.currentTarget);
         const raw = Object.fromEntries(formData.entries());
 
         const data = {
             name: String(raw.name || ""),
-            categoryId: String(raw.categoryId || ""),
+            categoryId: selectedCategory,
             unitOfMeasure: Number(raw.unitOfMeasure || 0),
             purchasePrice: Number(raw.purchasePrice || 0),
             sellingPrice: Number(raw.sellingPrice || 0),
@@ -134,6 +131,8 @@ const ProductsPage = () => {
             shopId,
         };
 
+        console.log("Yuborilayotgan data:", data);
+
         try {
             const response = await fetch(`${baseUrl}/api/product`, {
                 method: "POST",
@@ -141,7 +140,7 @@ const ProductsPage = () => {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({ dto: data }),
+                body: JSON.stringify(data),
             });
 
             const result = await response.json();
@@ -159,23 +158,24 @@ const ProductsPage = () => {
                 description: "Mahsulot qo‘shishda xatolik yuz berdi",
                 variant: "destructive",
             });
+        } finally {
+            setLoad(true)
         }
     };
 
     const handleEditProduct = async (
         e: React.FormEvent<HTMLFormElement>,
-        itemId: number,
+        itemId: number
     ) => {
         e.preventDefault();
-        const token = localStorage.getItem("token");
         if (!token || !shopId) return console.error("Token yoki shopId topilmadi");
 
         const formData = new FormData(e.currentTarget);
         const raw = Object.fromEntries(formData.entries());
 
         const data = {
-            sellingPrice: raw.price,
-            quantityInStock: raw.quantity
+            sellingPrice: Number(raw.price),
+            quantityInStock: Number(raw.quantity),
         };
 
         try {
@@ -203,13 +203,12 @@ const ProductsPage = () => {
                 description: "Mahsulot yangilashda xatolik yuz berdi",
                 variant: "destructive",
             });
+        } finally {
+            setLoad(true)
         }
     };
 
-    const handleDeleteProduct = async (
-        itemId: number,
-    ) => {
-        const token = localStorage.getItem("token");
+    const handleDeleteProduct = async (itemId: number) => {
         if (!token) return console.error("Token topilmadi");
 
         try {
@@ -219,9 +218,6 @@ const ProductsPage = () => {
                     Authorization: `Bearer ${token}`,
                 },
             });
-
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.Message || "Xatolik");
 
             toast({
                 title: "✅ O‘chirildi",
@@ -235,18 +231,20 @@ const ProductsPage = () => {
                 description: "Mahsulot o‘chirishda xatolik yuz berdi",
                 variant: "destructive",
             });
+        } finally {
+            setLoad(true)
         }
     };
 
     const getStockStatus = (product: any) => {
         if (product.quantity === 0) {
-            return <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white border-0">Tugagan</Badge>
+            return <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white border-0">Tugagan</Badge>;
         } else if (product.quantity <= 10) {
-            return <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">Kam</Badge>
+            return <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">Kam</Badge>;
         } else {
-            return <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">Yetarli</Badge>
+            return <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">Yetarli</Badge>;
         }
-    }
+    };
 
     return (
         <div>
@@ -281,20 +279,21 @@ const ProductsPage = () => {
 
                                 <div className="space-y-2">
                                     <Label htmlFor="product_category">{t("category")}</Label>
-                                    <Select name="categoryId">
+                                    <Select onValueChange={(value) => setSelectedCategory(value)}>
                                         <SelectTrigger className="border-2 focus:border-emerald-400">
                                             <SelectValue placeholder="Kategoriyani tanlang" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {categories
-                                                .filter((c) => c.value !== "all")
-                                                .map((category) => (
-                                                    <SelectItem key={category.value} value={category.value}>
-                                                        {category.label}
-                                                    </SelectItem>
-                                                ))}
+                                            {categories?.map((category) => (
+                                                <SelectItem key={category.id} value={category.id}>
+                                                    {category.name}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
+
+                                    {/* 📌 MUHIM: categoryId formData ga tushishi uchun hidden input */}
+                                    <input type="hidden" name="categoryId" value={selectedCategory} />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-2">
@@ -312,7 +311,7 @@ const ProductsPage = () => {
 
                                     <div className="space-y-2">
                                         <Label htmlFor="product_unit">O'lchov birligi</Label>
-                                        <Select name="unitOfMeasure">
+                                        <Select onValueChange={(value) => setUnit(value)}>
                                             <SelectTrigger className="border-2 focus:border-emerald-400">
                                                 <SelectValue placeholder="Birlik" />
                                             </SelectTrigger>
@@ -324,6 +323,9 @@ const ProductsPage = () => {
                                                 <SelectItem value="5">Quti</SelectItem>
                                             </SelectContent>
                                         </Select>
+
+                                        {/* 📌 unitOfMeasure uchun ham hidden input */}
+                                        <input type="hidden" name="unitOfMeasure" value={unit} />
                                     </div>
                                 </div>
 
@@ -382,7 +384,6 @@ const ProductsPage = () => {
                                     </Button>
                                 </DialogFooter>
                             </form>
-
                         </DialogContent>
                     </Dialog>
                 </div>
@@ -399,16 +400,22 @@ const ProductsPage = () => {
                     </div>
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                         <SelectTrigger className="w-full sm:w-48 h-12 rounded-xl border-2 focus:border-emerald-400">
-                            <SelectValue />
+                            <SelectValue placeholder="Kategoriya tanlang" />
                         </SelectTrigger>
                         <SelectContent>
-                            {categories.map((category) => (
-                                <SelectItem key={category.value} value={category.value}>
-                                    {category.label}
-                                </SelectItem>
-                            ))}
+                            {categories.length > 0 ? (
+                                categories.map((category) => (
+                                    <SelectItem key={category.id} value={category.id}>
+                                        {category.name}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <p className="px-4 py-2 text-sm text-muted-foreground">Kategoriya yo‘q</p>
+                            )}
                         </SelectContent>
                     </Select>
+
+
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -448,7 +455,7 @@ const ProductsPage = () => {
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-sm text-muted-foreground">Narx:</span>
-                                        <span className="font-bold text-emerald-600">{product?.price.toLocaleString()} so'm</span>
+                                        <span className="font-bold text-emerald-600">{product?.sellingPrice} so'm</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-2 pt-2">
@@ -525,7 +532,7 @@ const ProductsPage = () => {
                                             </DialogHeader>
                                             <DialogFooter>
                                                 <Button variant="outline">{t("cancel")}</Button>
-                                                <Button variant="destructive" onSubmit={() => handleDeleteProduct(product?.id)}>
+                                                <Button variant="destructive" onClick={() => handleDeleteProduct(product?.id)}>
                                                     {t("delete")}
                                                 </Button>
                                             </DialogFooter>
@@ -534,7 +541,7 @@ const ProductsPage = () => {
                                 </div>
                             </CardContent>
                         </Card>
-                    )) : <p className="text-3xl text-red-600 font-bold text-center my-10">Kechirasiz do'koningizda mahsulotlar yo'q mahsulot qo'shing</p>}
+                    )) : <p className="text-3xl text-red-600 font-bold text-center my-10">Loading....</p>}
                 </div>
             </div>
             <Toaster />
