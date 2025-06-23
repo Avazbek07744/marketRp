@@ -4,10 +4,22 @@ import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, } from "lucide-react"
+import { AlertTriangle, Edit, } from "lucide-react"
 import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useRouter } from 'next/navigation'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { toast } from "@/components/ui/use-toast"
 import lord from '@/axios'
 
 interface ProductType {
@@ -26,8 +38,10 @@ const LowStockPage = () => {
     const [token, setToken] = useState<string | null>(null);
     const { t, language, setLanguage } = useLanguage();
     const [praduct, setPraduct] = useState<ProductType[]>([])
-    const lowStockProducts = praduct.length > 0 && praduct.filter((p) => p.quantity <= 10 && p.quantity > 0);
+    const lowStockProducts = praduct.length > 0 && praduct.filter((p) => p.quantityInStock <= 10 && p.outOfStockThreshold > 0);
     const router = useRouter();
+    const [refetchCount, setRefetchCount] = useState(0);
+
 
     useEffect(() => {
         const savedShopId = localStorage.getItem("shopId");
@@ -43,19 +57,48 @@ const LowStockPage = () => {
         const getProducts = async () => {
             try {
                 const res = await lord.get(`/api/product/shop/${shopId}`);
-                setPraduct(res.data); 
+                setPraduct(res.data);
             } catch (error) {
                 console.error("❌ Mahsulotlarni olishda xatolik:", error);
             }
         };
 
         getProducts();
-    }, [token, shopId]);
+    }, [token, shopId, refetchCount]);
 
+    const handleEditProduct = async (
+        e: React.FormEvent<HTMLFormElement>,
+        itemId: string
+    ) => {
+        e.preventDefault();
+        if (!token || !shopId) return console.error("Token yoki shopId topilmadi");
 
-    function hendleClick() {
-        router.push(`/employee`)
-    }
+        const formData = new FormData(e.currentTarget);
+        const raw = Object.fromEntries(formData.entries());
+
+        const data = {
+            sellingPrice: Number(raw.price),
+            quantityInStock: Number(raw.quantity),
+        };
+
+        try {
+            const response = await lord.put(`/api/product/${itemId}`, data);
+            toast({
+                title: "✅ Yangilandi",
+                description: `✏️ ${data.sellingPrice} mahsuloti yangilandi`,
+                className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
+            });
+        } catch (error: any) {
+            console.error("❌ Xatolik:", error);
+            toast({
+                title: "Xatolik",
+                description: "Mahsulot yangilashda xatolik yuz berdi",
+                variant: "destructive",
+            });
+        } finally {
+            setRefetchCount(prev => prev + 1);
+        }
+    };
 
     return (
         <>
@@ -95,13 +138,59 @@ const LowStockPage = () => {
                                             <p className="text-sm text-muted-foreground mb-3">
                                                 {product.categoryName}
                                             </p>
-                                            <Button
+                                            {/* <Button
                                                 size="sm"
-                                                onClick={hendleClick}
-                                                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
+                                                onClick={()=>{hendleAdd(product.id)}}
                                             >
                                                 Qo'shish
-                                            </Button>
+                                            </Button> */}
+                                            <Dialog>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" size="sm"
+                                                        className="w-full  text-white bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 hover:text-white">
+                                                        Qo'shish
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Mahsulotni tahrirlash</DialogTitle>
+                                                        <DialogDescription>Mahsulot ma'lumotlarini o'zgartiring</DialogDescription>
+                                                    </DialogHeader>
+                                                    <form onSubmit={(e) => handleEditProduct(e, product.id)}>
+                                                        <div className="grid grid-cols-2 gap-2 mb-6">
+                                                            <div className="space-y-2">
+                                                                <Label htmlFor="edit_quantity">{t("quantity")}</Label>
+                                                                <Input
+                                                                    id="edit_quantity"
+                                                                    name="quantity"
+                                                                    type="number"
+                                                                    defaultValue={product?.quantityInStock}
+                                                                    className="border-2 focus:border-emerald-400"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label htmlFor="edit_price">{t("price")}</Label>
+                                                                <Input
+                                                                    id="edit_price"
+                                                                    name="price"
+                                                                    type="number"
+                                                                    defaultValue={product?.sellingPrice}
+                                                                    className="border-2 focus:border-emerald-400"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <DialogFooter>
+                                                            <Button
+                                                                type="submit"
+                                                                className="bg-gradient-to-r from-emerald-500 to-teal-500"
+                                                            >
+                                                                {t("save")}
+                                                            </Button>
+                                                        </DialogFooter>
+                                                    </form>
+                                                </DialogContent>
+                                            </Dialog>
                                         </CardContent>
                                     </Card>
                                 ))}
@@ -109,7 +198,7 @@ const LowStockPage = () => {
                     </CardContent>
                 </Card>
 
-            </div>
+            </div >
             <Toaster />
         </>
     )

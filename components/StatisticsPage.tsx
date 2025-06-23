@@ -17,13 +17,15 @@ import {
     Pie,
     Cell,
 } from "recharts"
+import { useEffect, useState } from "react"
+import lord from "@/axios"
 
 interface weekly {
     day: string,
     sales: number,
 }
 interface category {
-    name: string, value: number, color: string,
+    name: string, id: string,
 
 }
 interface monthlyProfit {
@@ -31,26 +33,125 @@ interface monthlyProfit {
     profit: number,
 }
 interface stock {
-    status: string,
-    count: number,
-    color: string,
+    stockStatus: string,
+    categoryId: string
 }
 
 interface ProductType {
     weeklyData: weekly[],
-    categoryData: category[],
     monthlyProfitData: monthlyProfit[],
-    stockData: stock[],
 }
 
 interface StatisticsPageProps {
     data: ProductType;
 }
 
+interface ProductSalesType {
+    productId: string;
+    productName: string;
+    totalQuantitySold: number;
+    unitOfMeasure: string;
+}
+
+
 const StatisticsPage: React.FC<StatisticsPageProps> = ({ data }) => {
     const { t, language, setLanguage } = useLanguage()
+    const [today, setToday] = useState(0)
+    const [monthly, setMonthly] = useState(0)
+    const [topProducts, setTopProducts] = useState<ProductSalesType[]>([])
+    const [weekly, setWeekly] = useState([])
+    const [stock, setStock] = useState<stock[]>([])
+    const [load, setLoad] = useState(false);
+    const [overal, setOveral] = useState([])
+    const [categories, setCategories] = useState<category[]>([])
 
-    
+
+    useEffect(() => {
+        const shopId = localStorage.getItem("shopId")
+
+        const StatisticaToday = async () => {
+            try {
+                const res = await lord.post("/api/sales/statistics/today-total");
+                const stats = res.data;
+                setToday(stats.totalSales.toLocaleString());
+            } catch (error) {
+                console.error("❌ Statistikani olishda xatolik:", error);
+            }
+        }; StatisticaToday()
+
+        const StatisticaMonthly = async () => {
+            const data = {
+                targetDate: new Date().toISOString(),
+                shopId,
+            };
+
+            try {
+                const res = await lord.post("/api/sales/statistics/shop-monthly-revenue", data);
+                const stats = res.data;
+                setMonthly(stats.revenue.toLocaleString());
+            } catch (error) {
+                console.error("❌ Statistikani olishda xatolik:", error);
+            }
+        }; StatisticaMonthly()
+
+        const StatisticaTopProducts = async () => {
+            try {
+                const res = await lord.post("/api/sales/statistics/top-selling-products");
+                setTopProducts(res.data);
+            } catch (error) {
+                console.error("❌ Statistikani olishda xatolik:", error);
+            }
+        }; StatisticaTopProducts()
+
+        setLoad(true)
+    }, [])
+
+    useEffect(() => {
+        const shopId = localStorage.getItem("shopId")
+        const StatisticaStockData = async () => {
+            try {
+                const res = await lord.get(`/api/product/shop/${shopId}`);
+                setStock(res.data);
+            } catch (error) {
+                console.error("❌ Statistikani olishda xatolik:", error);
+            }
+        }; StatisticaStockData()
+
+        // const StatisticaMonthlyData = async () => {
+        //     try {
+        //         const res = await lord.get(`/api/product/shop/${shopId}`);
+        //         setOveral(res.data);
+        //     } catch (error) {
+        //         console.error("❌ Statistikani olishda xatolik:", error);
+        //     }
+        // }; StatisticaMonthlyData()
+
+        const StatisticaCategories = async () => {
+            try {
+                const res = await lord.get(`/api/categories/shop/${shopId}`);
+                setCategories(res.data);
+            } catch (error: unknown) {
+                console.error("❌ Kategoriyalarni olishda xatolik:", error);
+            }
+        };
+
+        StatisticaCategories();
+    }, [load])
+
+    const getRandomColor = (seed: string) => {
+        const hash = Array.from(seed).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const r = (hash * 123) % 256;
+        const g = (hash * 456) % 256;
+        const b = (hash * 789) % 256;
+        return `rgb(${r},${g},${b})`;
+    };
+
+    const categoryData = categories.map(category => ({
+        name: category.name,
+        value: stock.filter(p => p.categoryId === category.id).length,
+        color: getRandomColor(category.id),
+    }));
+
 
     return (
         <>
@@ -71,7 +172,7 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ data }) => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-4xl font-bold">1,250,000 so'm</div>
+                            <div className="text-4xl font-bold">{today} so'm</div>
                             <p className="text-sm text-green-100">Bugungi savdo hajmi</p>
                         </CardContent>
                     </Card>
@@ -97,7 +198,7 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ data }) => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-4xl font-bold">35,200,000 so'm</div>
+                            <div className="text-4xl font-bold">{monthly} so'm</div>
                             <p className="text-sm text-purple-100">Joriy oy</p>
                         </CardContent>
                     </Card>
@@ -111,18 +212,14 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ data }) => {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-2">
-                                <div className="flex justify-between">
-                                    <span>Olma</span>
-                                    <span>150 kg</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Sut</span>
-                                    <span>80 litr</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Coca Cola</span>
-                                    <span>120 dona</span>
-                                </div>
+                                {
+                                    topProducts.length > 0 && topProducts.map(product => {
+                                        return <div key={product.productId} className="flex justify-between" >
+                                            <span>{product.productName}</span>
+                                            <span>{product.totalQuantitySold} {product.unitOfMeasure}</span>
+                                        </div>
+                                    })
+                                }
                             </div>
                         </CardContent>
                     </Card>
@@ -158,14 +255,14 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ data }) => {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
-                                            data={data.categoryData}
+                                            data={categoryData}
                                             cx="50%"
                                             cy="50%"
                                             outerRadius={80}
                                             dataKey="value"
                                             label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                                         >
-                                            {data.categoryData.map((entry, index) => (
+                                            {categoryData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
@@ -202,15 +299,33 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ data }) => {
                         <CardContent className="p-6">
                             <div className="h-64">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={data.stockData}>
+                                    <BarChart
+                                        data={[
+                                            {
+                                                status: "In Stock",
+                                                count: stock.filter((item) => item.stockStatus === "In Stock").length,
+                                                color: "#4ade80",
+                                            },
+                                            {
+                                                status: "Low Stock",
+                                                count: stock.filter((item) => item.stockStatus === "Low Stock").length,
+                                                color: "#facc15",
+                                            },
+                                            {
+                                                status: "Out of Stock",
+                                                count: stock.filter((item) => item.stockStatus === "Out of Stock").length,
+                                                color: "#f87171",
+                                            },
+                                        ]}
+                                    >
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="status" />
-                                        <YAxis />
+                                        <YAxis allowDecimals={false} />
                                         <Tooltip />
-                                        <Bar dataKey="count" fill="#8884d8">
-                                            {data.stockData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
+                                        <Bar dataKey="count">
+                                            <Cell fill="#4ade80" />
+                                            <Cell fill="#facc15" />
+                                            <Cell fill="#f87171" />
                                         </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -218,7 +333,7 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ data }) => {
                         </CardContent>
                     </Card>
                 </div>
-            </div>
+            </div >
         </>
     )
 }

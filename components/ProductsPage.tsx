@@ -48,7 +48,6 @@ interface ProductType {
     trending: string
 }
 
-
 const ProductsPage = () => {
     const { t } = useLanguage();
     const [shopId, setShopId] = useState<string | null>(null);
@@ -58,7 +57,7 @@ const ProductsPage = () => {
     const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [unit, setUnit] = useState("");
-    const [load, setLoad] = useState(false);
+    const [refetchCount, setRefetchCount] = useState(0);
 
     // Token va shopId ni localStorage dan olish
     useEffect(() => {
@@ -83,8 +82,8 @@ const ProductsPage = () => {
         };
 
         getCategories();
+        setRefetchCount(prev => prev + 1);
     }, [token, shopId]);
-
 
     // Mahsulotlarni olish
     useEffect(() => {
@@ -100,7 +99,16 @@ const ProductsPage = () => {
         };
 
         getProducts();
-    }, [token, shopId, load]);
+    }, [token, shopId, refetchCount]);
+
+    // Filterlash productlarni
+    useEffect(() => {
+        if (searchTerm === "") setRefetchCount(prev => prev + 1);
+        const filtered = product.filter((v) =>
+            v.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setProduct(filtered);
+    }, [searchTerm]);
 
     const handleAddProduct = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -145,13 +153,13 @@ const ProductsPage = () => {
                 variant: "destructive",
             });
         } finally {
-            setLoad(true)
+            setRefetchCount(prev => prev + 1);
         }
     };
 
     const handleEditProduct = async (
         e: React.FormEvent<HTMLFormElement>,
-        itemId: number
+        itemId: string
     ) => {
         e.preventDefault();
         if (!token || !shopId) return console.error("Token yoki shopId topilmadi");
@@ -179,11 +187,11 @@ const ProductsPage = () => {
                 variant: "destructive",
             });
         } finally {
-            setLoad(true)
+            setRefetchCount(prev => prev + 1);
         }
     };
 
-    const handleDeleteProduct = async (itemId: number) => {
+    const handleDeleteProduct = async (itemId: string) => {
         if (!token) return console.error("Token topilmadi");
 
         try {
@@ -202,7 +210,7 @@ const ProductsPage = () => {
                 variant: "destructive",
             });
         } finally {
-            setLoad(true)
+            setRefetchCount(prev => prev + 1);
         }
     };
 
@@ -369,7 +377,7 @@ const ProductsPage = () => {
                     </div>
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                         <SelectTrigger className="w-full sm:w-48 h-12 rounded-xl border-2 focus:border-emerald-400">
-                            <SelectValue placeholder="Kategoriya tanlang" />
+                            <SelectValue aria-placeholder="Kategoriya tanlang" placeholder="Kategoriya tanlang" />
                         </SelectTrigger>
                         <SelectContent>
                             {categories.length > 0 ? (

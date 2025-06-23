@@ -83,6 +83,17 @@ export default function EmployeePage() {
   const [categories, setCategories] = useState<categoryType[]>([])
   const [salesHistory, setSalesHistory] = useState<SaleItem[]>([])
 
+  // 30 daqiqadan so‘ng localStorage ni tozalovchi setTimeout
+  useEffect(() => {
+    localStorage.setItem("loginTime", Date.now().toString());
+
+    setTimeout(() => {
+      localStorage.clear();
+      router.push("/login");
+    }, 30 * 60 * 1000); // 30 minut = 1800000 millisekund
+
+  }, []);
+
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     const savedShopId = localStorage.getItem("shopId");

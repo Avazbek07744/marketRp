@@ -31,13 +31,15 @@ import OutOfStockPage from "@/components/OutOfStockPage";
 import Categories from "@/components/Categories"
 import lord from "@/axios"
 
-
 export default function StoreOwnerPage() {
   const { t, language, setLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("dashboard")
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const [categories, setCategories] = useState(0)
+  const [products, setProducts] = useState(0)
+  const [users, setUsers] = useState(0)
+  const [today, setToday] = useState(0)
 
   const statistics = {
     weeklyData: [
@@ -50,14 +52,6 @@ export default function StoreOwnerPage() {
       { day: "Yak", sales: 1900000 },
     ],
 
-    categoryData: [
-      { name: "Mevalar", value: 35, color: "#8884d8" },
-      { name: "Sabzavotlar", value: 25, color: "#82ca9d" },
-      { name: "Ichimliklar", value: 20, color: "#ffc658" },
-      { name: "Sut mahsulotlari", value: 15, color: "#ff7300" },
-      { name: "Boshqa", value: 5, color: "#00ff00" },
-    ],
-
     monthlyProfitData: [
       { month: "Yan", profit: 2500000 },
       { month: "Fev", profit: 2800000 },
@@ -67,29 +61,64 @@ export default function StoreOwnerPage() {
       { month: "Iyun", profit: 4200000 },
     ],
 
-    stockData: [
-      { status: "Yetarli", count: 120, color: "#22c55e" },
-      { status: "Kam", count: 25, color: "#eab308" },
-      { status: "Tugagan", count: 8, color: "#ef4444" },
-    ],
   };
 
+  // 30 daqiqadan so‘ng localStorage ni tozalovchi setTimeout
   useEffect(() => {
     localStorage.setItem("loginTime", Date.now().toString());
 
-    // 30 daqiqadan so‘ng localStorage ni tozalovchi setTimeout
     setTimeout(() => {
       localStorage.clear();
       console.log("⏳ 30 daqiqa o‘tdi. localStorage tozalandi.");
-      // Agar kerak bo‘lsa, foydalanuvchini logout qilish yoki sahifani refresh qilish
-      // window.location.reload();
       // yoki
-      // router.push("/login");
+      router.push("/login");
     }, 30 * 60 * 1000); // 30 minut = 1800000 millisekund
 
   }, []);
 
+  useEffect(() => {
+    const shopId = localStorage.getItem("shopId")
 
+    const Today = async () => {
+      try {
+        const res = await lord.post("/api/sales/statistics/today-total");
+        const stats = res.data;
+        setToday(stats.totalSales.toLocaleString());
+      } catch (error) {
+        console.error("❌ Statistikani olishda xatolik:", error);
+      }
+    }; Today()
+
+    const Products = async () => {
+      try {
+        const res = await lord.get(`/api/product/shop/${shopId}`);
+        const stats = res.data;
+        setProducts(stats.length);
+      } catch (error) {
+        console.error("❌ Statistikani olishda xatolik:", error);
+      }
+    }; Products()
+
+    const Users = async () => {
+      try {
+        const res = await lord.get(`/api/Users/shop/${shopId}/workers`);
+        setUsers(res.data.length);
+      } catch (error) {
+        console.error("❌ Statistikani olishda xatolik:", error);
+      }
+    }; Users()
+
+    const Categories = async () => {
+      try {
+        const res = await lord.get(`/api/categories/shop/${shopId}`);
+        setCategories(res.data.length);
+      } catch (error: unknown) {
+        console.error("❌ Kategoriyalarni olishda xatolik:", error);
+      }
+    };
+
+    Categories();
+  }, [])
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -109,10 +138,6 @@ export default function StoreOwnerPage() {
         console.error("Xatolik:", error);
       });
   }, []);
-
-
-
-  // Mock data for charts
 
   const handleLogout = () => {
     router.push("/login")
@@ -183,7 +208,7 @@ export default function StoreOwnerPage() {
                   <DollarSign className="h-6 w-6" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">1,250,000 so'm</div>
+                  <div className="text-3xl font-bold">{today} so'm</div>
                   <p className="text-xs text-emerald-100">+12% kechaga nisbatan</p>
                 </CardContent>
               </Card>
@@ -207,8 +232,8 @@ export default function StoreOwnerPage() {
                   <Package className="h-6 w-6" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">156</div>
-                  <p className="text-xs text-purple-100">4 kategoriyada</p>
+                  <div className="text-3xl font-bold">{products}</div>
+                  <p className="text-xs text-purple-100">{categories} kategoriyada</p>
                 </CardContent>
               </Card>
 
@@ -219,8 +244,8 @@ export default function StoreOwnerPage() {
                   <Users className="h-6 w-6" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">8</div>
-                  <p className="text-xs text-orange-100">2 faol smena</p>
+                  <div className="text-3xl font-bold">{users}</div>
+                  {/* <p className="text-xs text-orange-100">2 faol smena</p> */}
                 </CardContent>
               </Card>
             </div>

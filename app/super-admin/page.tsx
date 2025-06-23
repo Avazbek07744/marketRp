@@ -64,9 +64,24 @@ export default function SuperAdminPage() {
   const { theme, setTheme } = useTheme()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("stores")
-  const [searchTerm, setSearchTerm] = useState("")
   const [stores, setStores] = useState<StoreType[]>([])
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [refetchCount, setRefetchCount] = useState(0);
+  const [activeStores, setActiveStores] = useState(0)
+  const [blockStores, setBlockStores] = useState(0)
+  const [persent, setPersent] = useState(0)
+
+  // 30 daqiqadan so‘ng localStorage ni tozalovchi setTimeout
+  useEffect(() => {
+    localStorage.setItem("loginTime", Date.now().toString());
+
+    setTimeout(() => {
+      localStorage.clear();
+      console.log("⏳ 30 daqiqa o‘tdi. localStorage tozalandi.");
+      router.push("/login");
+    }, 30 * 60 * 1000); // 30 minut = 1800000 millisekund
+
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -86,6 +101,42 @@ export default function SuperAdminPage() {
         console.log("fetchda hatolik bor:", error);
       });
   }, [refetchCount, activeTab]);
+
+  useEffect(() => {
+    if (searchTerm === "") setRefetchCount(prev => prev + 1);
+    const filtered = stores.filter((v) =>
+      v.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setStores(filtered);
+  }, [searchTerm]);
+  useEffect(() => {
+    const fetchStoreActiveStatistics = async () => {
+      try {
+        const res = await lord.get("/api/shop/statistics/active-count");
+        const stats = res.data;
+
+        const percentage = (stats.active / stats.total) * 100;
+        percentage.toFixed(1)
+
+        setActiveStores(stats);
+        setPersent(percentage);
+      } catch (error) {
+        console.error("❌ Statistikani olishda xatolik:", error);
+      }
+    }; fetchStoreActiveStatistics();
+
+    const fetchStoreBlockedStatistics = async () => {
+      try {
+        const res = await lord.get("/api/shop/statistics/awaiting-payment-count");
+        const stats = res.data;
+
+        setBlockStores(stats);
+      } catch (error) {
+        console.error("❌ Statistikani olishda xatolik:", error);
+      }
+    }; fetchStoreBlockedStatistics();
+  }, [stores]);
+
 
   const handleLogout = () => {
     router.push("/login")
@@ -172,24 +223,25 @@ export default function SuperAdminPage() {
     }
   };
 
-
-  const handleStoreAction = async (action: "unblock" | "block", storeId: string) => {
+  const handleStoreAction = async (action: number, storeId: string) => {
     const messages = {
       block: `🚫 Do'kon bloklandi`,
       unblock: `✅ Do'kon blokdan chiqarildi`,
     };
 
+    const data = { status: action }
+
     try {
-      const url = lord.post(`/api/shop/${action}/${storeId}`);
+      const url = lord.patch(`/api/shop/${storeId}/status`, data);
 
       toast({
         title: "✅ Muvaffaqiyatli",
-        description: messages[action],
+        description: messages[action === 1 ? "unblock" : "block"],
         className: "border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950",
       });
 
 
-    } catch (error:unknown) {
+    } catch (error: unknown) {
       toast({
         title: "❌ Xatolik",
         description: "Amalni bajarishda xatolik yuz berdi",
@@ -201,11 +253,11 @@ export default function SuperAdminPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "active":
+      case "Active":
         return (
           <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">{t("active")}</Badge>
         )
-      case "blocked":
+      case "Blocked":
         return <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white border-0">{t("blocked")}</Badge>
       default:
         return (
@@ -216,9 +268,9 @@ export default function SuperAdminPage() {
 
   const getPaymentStatusBadge = (status: string) => {
     switch (status) {
-      case "paid":
+      case "Active":
         return <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">{t("paid")}</Badge>
-      case "unpaid":
+      case "Blocked":
         return <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white border-0">{t("unpaid")}</Badge>
       default:
         return <Badge className="bg-gradient-to-r from-gray-500 to-slate-500 text-white border-0">{t("unpaid")}</Badge>
@@ -302,7 +354,7 @@ export default function SuperAdminPage() {
                   <Store className="h-6 w-6" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">24</div>
+                  <div className="text-3xl font-bold">{stores.length}</div>
                   <p className="text-xs text-blue-100">+2 oxirgi oyda</p>
                 </CardContent>
               </Card>
@@ -314,8 +366,8 @@ export default function SuperAdminPage() {
                   <TrendingUp className="h-6 w-6" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">18</div>
-                  <p className="text-xs text-green-100">75% faollik</p>
+                  <div className="text-3xl font-bold">{activeStores}</div>
+                  <p className="text-xs text-green-100">{persent}% faollik</p>
                 </CardContent>
               </Card>
 
@@ -338,8 +390,8 @@ export default function SuperAdminPage() {
                   <BarChart3 className="h-6 w-6" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">6</div>
-                  <p className="text-xs text-orange-100">$3,200 jami</p>
+                  <div className="text-3xl font-bold">{blockStores}</div>
+                  <p className="text-xs text-orange-100">${30 * blockStores} Jami</p>
                 </CardContent>
               </Card>
             </div>
@@ -361,7 +413,7 @@ export default function SuperAdminPage() {
                   )}
 
                   <div
-                    className={`h-2 bg-gradient-to-r ${store.statusString === "active" ? "from-green-400 to-emerald-400" : "from-red-400 to-pink-400"}`}
+                    className={`h-2 bg-gradient-to-r ${store.statusString === "Active" ? "from-green-400 to-emerald-400" : "from-red-400 to-pink-400"}`}
                   />
 
                   <CardHeader>
@@ -392,7 +444,7 @@ export default function SuperAdminPage() {
                     </div>
 
                     <div className="flex justify-between items-center">
-                      {getPaymentStatusBadge(store.nextPaymentDate)}
+                      {getPaymentStatusBadge(store.statusString)}
                       {getStatusBadge(store.statusString)}
                     </div>
 
@@ -492,7 +544,7 @@ export default function SuperAdminPage() {
                                 : "hover:bg-red-50"
                             }
                           >
-                            {store?.statusString === "blocked" ? (
+                            {store?.statusString === "Blocked" ? (
                               <ShieldOff className="w-4 h-4" />
                             ) : (
                               <Shield className="w-4 h-4" />
@@ -506,7 +558,7 @@ export default function SuperAdminPage() {
                               {store?.statusString === "blocked" ? "Blokdan chiqarish" : "Bloklash"}
                             </DialogTitle>
                             <DialogDescription>
-                              {store?.statusString === "blocked"
+                              {store?.statusString === "Blocked"
                                 ? "Do'konni blokdan chiqarishni xohlaysizmi?"
                                 : "Do'konni bloklashni xohlaysizmi?"}
                             </DialogDescription>
@@ -519,16 +571,16 @@ export default function SuperAdminPage() {
 
                             <Button
                               variant={
-                                store?.statusString === "blocked" ? "default" : "destructive"
+                                store?.statusString === "Blocked" ? "default" : "destructive"
                               }
                               onClick={() =>
                                 handleStoreAction(
-                                  store?.statusString === "blocked" ? "unblock" : "block",
+                                  store?.statusString === "Blocked" ? 1 : 4,
                                   store.id
                                 )
                               }
                             >
-                              {store?.statusString === "blocked" ? t("unblock") : t("block")}
+                              {store?.statusString === "Blocked" ? t("unblock") : t("block")}
                             </Button>
                           </DialogFooter>
                         </DialogContent>

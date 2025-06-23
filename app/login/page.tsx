@@ -38,7 +38,7 @@ export default function Login() {
 
             localStorage.setItem("token", res.data.token)
 
-            router.push("/super-admin")
+            router.push("/")
 
         } catch (error: any) {
             toast({
