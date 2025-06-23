@@ -40,6 +40,8 @@ export default function StoreOwnerPage() {
   const [products, setProducts] = useState(0)
   const [users, setUsers] = useState(0)
   const [today, setToday] = useState(0)
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false)
 
   const statistics = {
     weeklyData: [
@@ -63,6 +65,21 @@ export default function StoreOwnerPage() {
 
   };
 
+  // ShopId ni localStorage dan olish
+  useEffect(() => {
+    lord.get("/api/Users/GetShopId")
+      .then((response) => {
+        localStorage.setItem("shopId", response.data);
+      })
+      .catch((error) => {
+        console.error("Xatolik:", error);
+      });
+
+    const savedShopId = localStorage.getItem("shopId");
+    setShopId(savedShopId);
+    setLoading(true)
+  }, []);
+
   // 30 daqiqadan so‘ng localStorage ni tozalovchi setTimeout
   useEffect(() => {
     localStorage.setItem("loginTime", Date.now().toString());
@@ -77,50 +94,6 @@ export default function StoreOwnerPage() {
   }, []);
 
   useEffect(() => {
-    const shopId = localStorage.getItem("shopId")
-
-    const Today = async () => {
-      try {
-        const res = await lord.post("/api/sales/statistics/today-total");
-        const stats = res.data;
-        setToday(stats.totalSales.toLocaleString());
-      } catch (error) {
-        console.error("❌ Statistikani olishda xatolik:", error);
-      }
-    }; Today()
-
-    const Products = async () => {
-      try {
-        const res = await lord.get(`/api/product/shop/${shopId}`);
-        const stats = res.data;
-        setProducts(stats.length);
-      } catch (error) {
-        console.error("❌ Statistikani olishda xatolik:", error);
-      }
-    }; Products()
-
-    const Users = async () => {
-      try {
-        const res = await lord.get(`/api/Users/shop/${shopId}/workers`);
-        setUsers(res.data.length);
-      } catch (error) {
-        console.error("❌ Statistikani olishda xatolik:", error);
-      }
-    }; Users()
-
-    const Categories = async () => {
-      try {
-        const res = await lord.get(`/api/categories/shop/${shopId}`);
-        setCategories(res.data.length);
-      } catch (error: unknown) {
-        console.error("❌ Kategoriyalarni olishda xatolik:", error);
-      }
-    };
-
-    Categories();
-  }, [])
-
-  useEffect(() => {
     const token = localStorage.getItem("token")
     const pathname = window.location.pathname
 
@@ -130,14 +103,48 @@ export default function StoreOwnerPage() {
   }, [router])
 
   useEffect(() => {
-    lord.get("/api/Users/GetShopId")
-      .then((response) => {
-        localStorage.setItem("shopId", response.data);
-      })
-      .catch((error) => {
-        console.error("Xatolik:", error);
-      });
-  }, []);
+    if (loading) {
+      const Today = async () => {
+        try {
+          const res = await lord.post("/api/sales/statistics/today-total");
+          const stats = res.data;
+          setToday(stats.totalSales.toLocaleString());
+        } catch (error) {
+          console.error("❌ Statistikani olishda xatolik:", error);
+        }
+      }; Today()
+
+      const Products = async () => {
+        try {
+          const res = await lord.get(`/api/product/shop/${shopId}`);
+          const stats = res.data;
+          setProducts(stats.length);
+        } catch (error) {
+          console.error("❌ Statistikani olishda xatolik:", error);
+        }
+      }; Products()
+
+      const Users = async () => {
+        try {
+          const res = await lord.get(`/api/Users/shop/${shopId}/workers`);
+          setUsers(res.data.length);
+        } catch (error) {
+          console.error("❌ Statistikani olishda xatolik:", error);
+        }
+      }; Users()
+
+      const Categories = async () => {
+        try {
+          const res = await lord.get(`/api/categories/shop/${shopId}`);
+          setCategories(res.data.length);
+        } catch (error: unknown) {
+          console.error("❌ Kategoriyalarni olishda xatolik:", error);
+        }
+      };
+
+      Categories();
+    }
+  }, [loading, shopId])
 
   const handleLogout = () => {
     router.push("/login")
