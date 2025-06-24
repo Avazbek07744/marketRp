@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import lord from '@/axios'
+import Cookies from 'js-cookie'
 
 interface ProductType {
     id: string;
@@ -34,18 +35,18 @@ interface ProductType {
 
 const LowStockPage = () => {
 
-    const [shopId, setShopId] = useState<string | null>(null);
-    const [token, setToken] = useState<string | null>(null);
+    const [shopId, setShopId] = useState<string | undefined>(undefined);
+    const [token, setToken] = useState<string | undefined>(undefined);
     const { t, language, setLanguage } = useLanguage();
-    const [praduct, setPraduct] = useState<ProductType[]>([])
-    const lowStockProducts = praduct.length > 0 && praduct.filter((p) => p.quantityInStock <= 10 && p.outOfStockThreshold > 0);
+    const [product, setProduct] = useState<ProductType[]>([])
+    const lowStockProducts = product.length > 0 && product.filter((p) => p.quantityInStock <= 10 && p.outOfStockThreshold > 0);
     const router = useRouter();
     const [refetchCount, setRefetchCount] = useState(0);
 
 
     useEffect(() => {
-        const savedShopId = localStorage.getItem("shopId");
-        const savedToken = localStorage.getItem("token");
+        const savedShopId = Cookies.get("shopId");
+        const savedToken = Cookies.get("token");
 
         setShopId(savedShopId);
         setToken(savedToken);
@@ -57,9 +58,14 @@ const LowStockPage = () => {
         const getProducts = async () => {
             try {
                 const res = await lord.get(`/api/product/shop/${shopId}`);
-                setPraduct(res.data);
+                setProduct(res.data);
             } catch (error) {
                 console.error("❌ Mahsulotlarni olishda xatolik:", error);
+                toast({
+                    title: "Xatolik",
+                    description: "Mahsulotlarni olishda muammo yuz berdi",
+                    variant: "destructive",
+                });
             }
         };
 
@@ -71,7 +77,10 @@ const LowStockPage = () => {
         itemId: string
     ) => {
         e.preventDefault();
-        if (!token || !shopId) return console.error("Token yoki shopId topilmadi");
+        if (!token || !shopId) {
+            console.error("Token yoki shopId topilmadi");
+            return;
+        }
 
         const formData = new FormData(e.currentTarget);
         const raw = Object.fromEntries(formData.entries());
@@ -82,10 +91,10 @@ const LowStockPage = () => {
         };
 
         try {
-            const response = await lord.put(`/api/product/${itemId}`, data);
+            await lord.put(`/api/product/${itemId}`, data);
             toast({
                 title: "✅ Yangilandi",
-                description: `✏️ ${data.sellingPrice} mahsuloti yangilandi`,
+                description: `✏️ ${data.sellingPrice} so'm narxdagi mahsulot yangilandi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
         } catch (error: any) {

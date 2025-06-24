@@ -30,6 +30,7 @@ import LowStockPage from "@/components/LowStockPage";
 import OutOfStockPage from "@/components/OutOfStockPage";
 import Categories from "@/components/Categories"
 import lord from "@/axios"
+import Cookies from "js-cookie"
 
 export default function StoreOwnerPage() {
   const { t, language, setLanguage } = useLanguage()
@@ -65,45 +66,49 @@ export default function StoreOwnerPage() {
 
   };
 
-  // ShopId ni localStorage dan olish
   useEffect(() => {
     lord.get("/api/Users/GetShopId")
       .then((response) => {
-        localStorage.setItem("shopId", response.data);
+        Cookies.set("shopId", response.data);
+        setShopId(response.data);
+        setLoading(true);
       })
       .catch((error) => {
         console.error("Xatolik:", error);
       });
 
-    const savedShopId = localStorage.getItem("shopId");
-    setShopId(savedShopId);
-    setLoading(true)
+    const savedShopId = Cookies.get("shopId");
+    if (savedShopId) {
+      setShopId(savedShopId);
+      setLoading(true);
+    }
   }, []);
 
-  // 30 daqiqadan so‘ng localStorage ni tozalovchi setTimeout
+  // 30 daqiqadan so‘ng cookie ni tozalovchi setTimeout
   useEffect(() => {
-    localStorage.setItem("loginTime", Date.now().toString());
+    Cookies.set("loginTime", Date.now().toString());
 
     setTimeout(() => {
-      localStorage.clear();
-      console.log("⏳ 30 daqiqa o‘tdi. localStorage tozalandi.");
-      // yoki
+      Cookies.remove("token");
+      Cookies.remove("shopId");
+      Cookies.remove("loginTime");
+      console.log("⏳ 30 daqiqa o‘tdi. Cookie tozalandi.");
       router.push("/login");
-    }, 30 * 60 * 1000); // 30 minut = 1800000 millisekund
-
+    }, 30 * 60 * 1000);
   }, []);
 
+  // Token mavjudligini tekshirish
   useEffect(() => {
-    const token = localStorage.getItem("token")
-    const pathname = window.location.pathname
+    const token = Cookies.get("token");
+    const pathname = window.location.pathname;
 
     if (!token && !pathname.includes("/register")) {
-      router.push("/login")
+      router.push("/login");
     }
-  }, [router])
+  }, [router]);
 
   useEffect(() => {
-    if (loading) {
+    if (loading && shopId) {
       const Today = async () => {
         try {
           const res = await lord.post("/api/sales/statistics/today-total");
@@ -112,7 +117,7 @@ export default function StoreOwnerPage() {
         } catch (error) {
           console.error("❌ Statistikani olishda xatolik:", error);
         }
-      }; Today()
+      };
 
       const Products = async () => {
         try {
@@ -122,7 +127,7 @@ export default function StoreOwnerPage() {
         } catch (error) {
           console.error("❌ Statistikani olishda xatolik:", error);
         }
-      }; Products()
+      };
 
       const Users = async () => {
         try {
@@ -131,26 +136,30 @@ export default function StoreOwnerPage() {
         } catch (error) {
           console.error("❌ Statistikani olishda xatolik:", error);
         }
-      }; Users()
+      };
 
       const Categories = async () => {
         try {
           const res = await lord.get(`/api/categories/shop/${shopId}`);
           setCategories(res.data.length);
-        } catch (error: unknown) {
+        } catch (error) {
           console.error("❌ Kategoriyalarni olishda xatolik:", error);
         }
       };
 
+      Today();
+      Products();
+      Users();
       Categories();
     }
-  }, [loading, shopId])
+  }, [loading, shopId]);
 
+  // Logout
   const handleLogout = () => {
-    router.push("/login")
-    localStorage.removeItem("token")
-    localStorage.removeItem("shopId")
-  }
+    Cookies.remove("token");
+    Cookies.remove("shopId");
+    router.push("/login");
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-slate-900 dark:via-emerald-900 dark:to-teal-900 pb-20">

@@ -10,6 +10,7 @@ import { toast } from "@/components/ui/use-toast"
 import { ToastAction } from "@/components/ui/toast"
 import { Toaster } from "@/components/ui/toaster"
 import lord from "@/axios"
+import Cookies from "js-cookie";
 
 export default function Login() {
     const router = useRouter();
@@ -17,11 +18,11 @@ export default function Login() {
         phoneNumber: "",
         password: "",
     });
+
     const [isLoading, setIsLoading] = useState(false);
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
     const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault()
+        e.preventDefault();
 
         if (!formData.phoneNumber || !formData.password) {
             toast({
@@ -31,26 +32,37 @@ export default function Login() {
             return;
         }
 
-        setIsLoading(true)
+        setIsLoading(true);
 
         try {
-            const res = await lord.post(`/api/auth/login`,formData)
+            const res = await lord.post(`/api/auth/login`, formData);
 
-            localStorage.setItem("token", res.data.token)
+            // Tokenni Cookies va localStorage ga yozamiz
+            Cookies.set("token", res.data.token);
 
-            router.push("/")
+            if (formData.phoneNumber === "+998941061243" && formData.password === "200704") {
+                router.push("/super-admin");
+            } else {
+                router.push("/");
+            }
 
         } catch (error: any) {
+            const errorMessage = error.response?.data?.Message || "Xatolik yuz berdi";
+
+            if (error.response?.status === 403 && errorMessage === "User account is not active.") {
+                router.push("/payments");
+                return;
+            }
+
             toast({
                 title: "Kirishda xatolik",
-                description: error.message || "Xatolik yuz berdi",
+                description: errorMessage,
                 action: <ToastAction altText="Qayta urinish">Qayta urinish</ToastAction>,
-            })
+            });
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
-
+    };
 
     return (
         <div className="min-h-screen gradient-bg flex items-center justify-center p-4">
@@ -86,7 +98,7 @@ export default function Login() {
 
                         <Button
                             type="submit"
-                            className="w-full bg-white text-dark-blue hover:bg-white/90 font-semibold"
+                            className={`${isLoading ? "bg-black text-dark-blue" : "bg-white text-dark-blue"} w-full hover:bg-white/90 font-semibold`}
                             disabled={isLoading}
                         >
                             {isLoading ? "..." : "Kirish"}

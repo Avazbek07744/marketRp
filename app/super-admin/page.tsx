@@ -41,6 +41,7 @@ import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { DialogClose } from "@radix-ui/react-dialog"
 import lord from "@/axios"
+import Cookies from "js-cookie";
 
 interface StoreType {
   id: string;
@@ -71,34 +72,40 @@ export default function SuperAdminPage() {
   const [blockStores, setBlockStores] = useState(0)
   const [persent, setPersent] = useState(0)
 
-  // 30 daqiqadan so‘ng localStorage ni tozalovchi setTimeout
+
+  // 30 daqiqadan so‘ng cookie ni tozalovchi setTimeout
   useEffect(() => {
-    localStorage.setItem("loginTime", Date.now().toString());
+    Cookies.set("loginTime", Date.now().toString());
 
     setTimeout(() => {
-      localStorage.clear();
-      console.log("⏳ 30 daqiqa o‘tdi. localStorage tozalandi.");
+      Cookies.remove("token");
+      Cookies.remove("loginTime");
+      console.log("⏳ 30 daqiqa o‘tdi. Cookie tozalandi.");
       router.push("/login");
     }, 30 * 60 * 1000); // 30 minut = 1800000 millisekund
 
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
-    const pathname = window.location.pathname
+    const token = Cookies.get("token");
+    const pathname = window.location.pathname;
 
     if (!token && !pathname.includes("/register")) {
-      router.push("/login")
+      router.push("/login");
     }
-  }, [router])
+  }, [router]);
 
   useEffect(() => {
     lord.get(`/api/shop`)
       .then((response) => {
         setStores(response.data);
       })
-      .catch((error) => {
-        console.log("fetchda hatolik bor:", error);
+      .catch((error:any) => {
+        toast({
+          title: "❌ Xatolik",
+          description: `${error.Message} xatolik yuz berdi`,
+          className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
+        });
       });
   }, [refetchCount, activeTab]);
 
@@ -109,6 +116,7 @@ export default function SuperAdminPage() {
     );
     setStores(filtered);
   }, [searchTerm]);
+
   useEffect(() => {
     const fetchStoreActiveStatistics = async () => {
       try {
@@ -120,8 +128,12 @@ export default function SuperAdminPage() {
 
         setActiveStores(stats);
         setPersent(percentage);
-      } catch (error) {
-        console.error("❌ Statistikani olishda xatolik:", error);
+      } catch (error:any) {
+        toast({
+          title: "❌ Xatolik",
+          description: `${error.Message} xatolik yuz berdi`,
+          className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
+        });
       }
     }; fetchStoreActiveStatistics();
 
@@ -131,8 +143,12 @@ export default function SuperAdminPage() {
         const stats = res.data;
 
         setBlockStores(stats);
-      } catch (error) {
-        console.error("❌ Statistikani olishda xatolik:", error);
+      } catch (error:any) {
+        toast({
+          title: "❌ Xatolik",
+          description: `${error.Message} xatolik yuz berdi`,
+          className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
+        });
       }
     }; fetchStoreBlockedStatistics();
   }, [stores]);
@@ -171,7 +187,6 @@ export default function SuperAdminPage() {
         description: "Do'kon qo'shishda xatolik yuz berdi",
         className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
       });
-      console.error(error);
     }
   };
 
@@ -189,7 +204,6 @@ export default function SuperAdminPage() {
         description: "O‘chirish vaqtida xatolik yuz berdi",
         className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
       });
-      console.error(error);
     } finally {
       setRefetchCount(prev => prev + 1);
     }
@@ -217,7 +231,6 @@ export default function SuperAdminPage() {
         description: "Tahrirlash vaqtida xatolik yuz berdi",
         className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
       });
-      console.error(error);
     } finally {
       setRefetchCount(prev => prev + 1);
     }
@@ -247,7 +260,6 @@ export default function SuperAdminPage() {
         description: "Amalni bajarishda xatolik yuz berdi",
         className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
       });
-      console.error(error);
     }
   };
 

@@ -5,10 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, XCircle, } from "lucide-react"
+import {toast} from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useRouter } from 'next/navigation'
 import lord from '@/axios'
+import Cookies from 'js-cookie'
 
 interface ProductType {
     id: string;
@@ -20,8 +22,8 @@ interface ProductType {
 
 const OutOfStockPage = () => {
 
-    const [shopId, setShopId] = useState<string | null>(null);
-    const [token, setToken] = useState<string | null>(null);
+    const [shopId, setShopId] = useState<string | undefined>(undefined);
+    const [token, setToken] = useState<string | undefined>(undefined);
     const { t, language, setLanguage } = useLanguage();
     const [product, setProduct] = useState<ProductType[]>([])
     const router = useRouter();
@@ -31,8 +33,8 @@ const OutOfStockPage = () => {
 
 
     useEffect(() => {
-        const savedShopId = localStorage.getItem("shopId");
-        const savedToken = localStorage.getItem("token");
+        const savedShopId = Cookies.get("shopId");
+        const savedToken = Cookies.get("token");
 
         setShopId(savedShopId);
         setToken(savedToken);
@@ -47,16 +49,19 @@ const OutOfStockPage = () => {
                 setProduct(res.data);
             } catch (error) {
                 console.error("❌ Mahsulotlarni olishda xatolik:", error);
+                toast({
+                    title: "Xatolik",
+                    description: "Mahsulotlarni olishda muammo yuz berdi",
+                    variant: "destructive",
+                });
             }
         };
 
         getProducts();
     }, [token, shopId]);
 
-
-
     function hendleClick() {
-        router.push(`/employee`)
+        router.push("/")
     }
 
 

@@ -28,6 +28,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useEffect, useState } from "react"
 import lord from "@/axios"
+import Cookies from "js-cookie"
 
 interface ProductType {
     id: string;
@@ -50,8 +51,8 @@ interface ProductType {
 
 const ProductsPage = () => {
     const { t } = useLanguage();
-    const [shopId, setShopId] = useState<string | null>(null);
-    const [token, setToken] = useState<string | null>(null);
+    const [shopId, setShopId] = useState<string | undefined>(undefined);
+    const [token, setToken] = useState<string | undefined>(undefined);
     const [searchTerm, setSearchTerm] = useState("");
     const [product, setProduct] = useState<ProductType[]>([]);
     const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
@@ -59,10 +60,11 @@ const ProductsPage = () => {
     const [unit, setUnit] = useState("");
     const [refetchCount, setRefetchCount] = useState(0);
 
-    // Token va shopId ni localStorage dan olish
+
+    // Token va shopId ni cookie dan olish
     useEffect(() => {
-        const savedShopId = localStorage.getItem("shopId");
-        const savedToken = localStorage.getItem("token");
+        const savedShopId = Cookies.get("shopId");
+        const savedToken = Cookies.get("token");
 
         setShopId(savedShopId);
         setToken(savedToken);
@@ -103,7 +105,10 @@ const ProductsPage = () => {
 
     // Filterlash productlarni
     useEffect(() => {
-        if (searchTerm === "") setRefetchCount(prev => prev + 1);
+        if (searchTerm === "") {
+            setRefetchCount(prev => prev + 1);
+            return;
+        }
         const filtered = product.filter((v) =>
             v.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
@@ -138,14 +143,13 @@ const ProductsPage = () => {
         };
 
         try {
-            const response = await lord.post(`/api/product`, data);
-
+            await lord.post(`/api/product`, data);
             toast({
                 title: "✅ Qo‘shildi",
                 description: `📦 ${data.name} mahsuloti qo‘shildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error: any) {
+        } catch (error) {
             console.error("❌ Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -173,13 +177,13 @@ const ProductsPage = () => {
         };
 
         try {
-            const response = await lord.put(`/api/product/${itemId}`, data);
+            await lord.put(`/api/product/${itemId}`, data);
             toast({
                 title: "✅ Yangilandi",
                 description: `✏️ ${data.sellingPrice} mahsuloti yangilandi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error: any) {
+        } catch (error) {
             console.error("❌ Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -195,14 +199,13 @@ const ProductsPage = () => {
         if (!token) return console.error("Token topilmadi");
 
         try {
-            const response = await lord.delete(`/api/product/${itemId}`);
-
+            await lord.delete(`/api/product/${itemId}`);
             toast({
                 title: "✅ O‘chirildi",
                 description: `🗑️ ${itemId} mahsuloti o‘chirildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error: any) {
+        } catch (error) {
             console.error("❌ Xatolik:", error);
             toast({
                 title: "Xatolik",

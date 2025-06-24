@@ -26,25 +26,19 @@ import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useState } from "react"
 import lord from '@/axios'
-
-interface EntriseType {
-    fullName: string,
-    phoneNumber: string,
-    username: string,
-    password: string,
-}
+import Cookies from 'js-cookie'
 
 const EmployeesPage = () => {
     const { t } = useLanguage();
 
-    const [shopId, setShopId] = useState<string | null>(null);
-    const [token, setToken] = useState<string | null>(null);
+    const [shopId, setShopId] = useState<string | undefined>(undefined);
+    const [token, setToken] = useState<string | undefined>(undefined);
     const [employees, setEmployees] = useState<any[]>([]);
     const [refetchCount, setRefetchCount] = useState(0);
-
+  // Token va shopId ni cookie dan olish
     useEffect(() => {
-        const savedShopId = localStorage.getItem("shopId");
-        const savedToken = localStorage.getItem("token");
+        const savedShopId = Cookies.get("shopId");
+        const savedToken = Cookies.get("token");
 
         setShopId(savedShopId);
         setToken(savedToken);
@@ -57,7 +51,7 @@ const EmployeesPage = () => {
             try {
                 const res = await lord.get(`/api/Users/shop/${shopId}/workers`);
                 setEmployees(res.data);
-            } catch (err: unknown) {
+            } catch (err) {
                 console.error("Xatolik:", err);
             }
         };
@@ -65,7 +59,7 @@ const EmployeesPage = () => {
         fetchEmployees();
     }, [shopId, token, refetchCount]);
 
-    function validate(data: EntriseType) {
+    function validate(data: Record<string, FormDataEntryValue>) {
         if (!data.fullName || typeof data.fullName !== "string" || data.fullName.trim().length < 3) {
             return toast({
                 title: "⚠️ Xatolik",
@@ -98,9 +92,8 @@ const EmployeesPage = () => {
             });
         }
 
-        return true
+        return true;
     }
-
 
     const handleAddEmployee = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -110,7 +103,6 @@ const EmployeesPage = () => {
         const entries = Object.fromEntries(formData.entries());
 
         if (validate(entries) !== true) return;
-
 
         const data = {
             fullName: entries.fullName.toString().trim(),
@@ -123,7 +115,7 @@ const EmployeesPage = () => {
         };
 
         try {
-            const response = await lord.post(`/api/auth/register-worker`, data);
+            await lord.post(`/api/auth/register-worker`, data);
 
             toast({
                 title: "✅ Ishchi qo‘shildi",
@@ -133,7 +125,7 @@ const EmployeesPage = () => {
         } catch (error: any) {
             toast({
                 title: "Xatolik",
-                description: error?.Message,
+                description: error?.Message || "Server xatolik berdi",
                 variant: "destructive",
             });
         } finally {
@@ -141,10 +133,9 @@ const EmployeesPage = () => {
         }
     };
 
-
     const handleEditEmployee = async (
         e: React.FormEvent<HTMLFormElement>,
-        itemId: string | number,
+        itemId: string | number
     ) => {
         e.preventDefault();
         if (!token || !shopId) return console.warn("Token yoki shopId yo‘q");
@@ -162,15 +153,14 @@ const EmployeesPage = () => {
         };
 
         try {
-            const response = await lord.put(`/api/Users/${itemId}`, data);
+            await lord.put(`/api/Users/${itemId}`, data);
 
             toast({
                 title: "✅ Yangilandi",
                 description: `✏️ ${data.fullName} ishchi yangilandi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-
-        } catch (error: any) {
+        } catch (error) {
             console.error("Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -186,15 +176,14 @@ const EmployeesPage = () => {
         if (!token) return console.warn("Token yo‘q");
 
         try {
-            const response = await lord.delete(`/api/Users/${itemId}`)
+            await lord.delete(`/api/Users/${itemId}`);
 
             toast({
                 title: "✅ O‘chirildi",
                 description: `🗑️ ${itemId} ishchi o‘chirildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-
-        } catch (error: any) {
+        } catch (error) {
             console.error("Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -205,6 +194,7 @@ const EmployeesPage = () => {
             setRefetchCount(prev => prev + 1);
         }
     };
+
 
     return (
         <>

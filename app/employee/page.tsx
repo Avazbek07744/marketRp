@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import lord from "@/axios"
+import Cookies from "js-cookie"
 
 interface ProductType {
   id: string;
@@ -54,7 +55,7 @@ interface categoryType {
   updatedDate: string,
 }
 
-export interface SaleItem {
+interface SaleItem {
   id: string;
   productId: string;
   productName: string;
@@ -76,103 +77,99 @@ export default function EmployeePage() {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [quantityInputs, setQuantityInputs] = useState<{ [key: number]: string }>({})
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const [shopId, setShopId] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | undefined>(undefined);
+  const [shopId, setShopId] = useState<string | undefined>(undefined);
   const [products, setProducts] = useState<ProductType[]>([]);
   const [load, setLoad] = useState(false);
   const [categories, setCategories] = useState<categoryType[]>([])
   const [salesHistory, setSalesHistory] = useState<SaleItem[]>([])
 
-  // 30 daqiqadan so‘ng localStorage ni tozalovchi setTimeout
+  // 30 daqiqadan so'ng cookie ni tozalash
   useEffect(() => {
-    localStorage.setItem("loginTime", Date.now().toString());
+    Cookies.set("loginTime", Date.now().toString());
 
     setTimeout(() => {
-      localStorage.clear();
+      Cookies.remove("token");
+      Cookies.remove("shopId");
+      Cookies.remove("loginTime");
       router.push("/login");
-    }, 30 * 60 * 1000); // 30 minut = 1800000 millisekund
-
+    }, 30 * 60 * 1000);
   }, []);
 
+  // cookie-dan token va shopId olish
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    const savedShopId = localStorage.getItem("shopId");
+    const savedToken = Cookies.get("token");
+    const savedShopId = Cookies.get("shopId");
 
     setToken(savedToken);
     setShopId(savedShopId);
-    setLoad(true)
+    setLoad(true);
   }, []);
 
+  // shopId ni API dan olib cookie ga yozish
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = Cookies.get("token");
 
-    fetch(`${baseUrl}/api/Users/GetShopId`, {
-      method: 'GET',
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/Users/GetShopId`, {
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     })
       .then((response) => {
-        if (!response.ok) {
-          throw new Error('xatolik yuz berdi');
-        }
+        if (!response.ok) throw new Error("xatolik yuz berdi");
         return response.json();
       })
       .then((data) => {
-        localStorage.setItem("shopId", data)
+        Cookies.set("shopId", data);
+        setShopId(data);
       })
-      .catch((error) => {
-        // console.error('Xatolik:', error);
-      });
-  }, [])
+      .catch(() => {});
+  }, []);
 
+  // token mavjudligini tekshirish
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const pathname = window.location.pathname
+    const token = Cookies.get("token");
+    const pathname = window.location.pathname;
 
     if (!token && !pathname.includes("/register")) {
-      router.push("/login")
+      router.push("/login");
     }
-  }, [router])
+  }, [router]);
 
+  // mahsulot va kategoriya olish
   useEffect(() => {
     if (shopId) {
       const getProductsAndCategories = async () => {
-        if (!shopId) return;
-
         try {
           const productRes = await lord.get(`/api/product/shop/${shopId}`);
-          setProducts(productRes.data); // axios avtomatik .json() qiladi
+          setProducts(productRes.data);
 
           const categoryRes = await lord.get(`/api/categories/shop/${shopId}`);
           setCategories(categoryRes.data);
-
         } catch (error) {
           console.error("❌ Ma'lumotlarni olishda xatolik:", error);
         }
       };
       getProductsAndCategories();
     }
-  }, [token, shopId, load])
+  }, [token, shopId, load]);
 
+  // sales-history olish
   useEffect(() => {
     const fetchAllSalesItems = async () => {
       if (activeTab !== "sales_history" || !shopId) return;
 
       try {
-        // 1. Barcha salesni olib kelamiz
         const salesResponse = await lord.get(`/api/sales/shop/${shopId}`);
         const sales = salesResponse.data;
 
-        // 2. Har bir sale.id bo‘yicha sale-items larni parallel olib kelamiz
         const allItemsPromises = sales.map((sale: any) =>
-          lord.get(`/api/sale-items/sale/${sale.id}`).then(res => res.data)
+          lord.get(`/api/sale-items/sale/${sale.id}`).then((res) => res.data)
         );
 
         const allItemsArrays = await Promise.all(allItemsPromises);
-
-        // 3. Barcha natijalarni bitta arrayga tekislab qo‘shamiz
-        const allItems = allItemsArrays.flat(); // barcha mahsulotlar
+        const allItems = allItemsArrays.flat();
 
         setSalesHistory(allItems);
       } catch (error) {
@@ -183,72 +180,79 @@ export default function EmployeePage() {
     fetchAllSalesItems();
   }, [activeTab === "sales_history", shopId]);
 
+  // Logout
   const handleLogout = () => {
-    router.push("/login")
-    localStorage.removeItem("token")
-    localStorage.removeItem("shopId")
-  }
+    Cookies.remove("token");
+    Cookies.remove("shopId");
+    router.push("/login");
+  };
 
+  // savat funksiyalari
   const addToCart = (product: any) => {
-    const existingItem = cart.find((item) => item.id === product.id)
+    const existingItem = cart.find((item) => item.id === product.id);
     if (existingItem) {
       toast({
         title: "🛒 Mahsulot allaqachon savatda",
         description: `${product.name} mahsuloti savatda mavjud. Miqdorni o'zgartiring.`,
         className: "border-l-4 border-l-yellow-500 bg-yellow-50 dark:bg-yellow-950",
-      })
-      setIsCartOpen(true)
-      return
+      });
+      setIsCartOpen(true);
+      return;
     } else {
-      setCart([...cart, { ...product, quantity: 0 }])
-      setQuantityInputs({ ...quantityInputs, [product.id]: "0" })
+      setCart([...cart, { ...product, quantity: 0 }]);
+      setQuantityInputs({ ...quantityInputs, [product.id]: "0" });
       toast({
         title: "✅ Savatga qo'shildi!",
         description: `${product.name} muvaffaqiyatli savatga qo'shildi`,
         className: "border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950",
-      })
+      });
     }
-    setIsCartOpen(true)
-  }
+    setIsCartOpen(true);
+  };
 
   const handleQuantityInputChange = (productId: number, value: string) => {
-    // Allow empty string, numbers, and decimal point
     if (value === "" || /^\d*\.?\d*$/.test(value)) {
-      setQuantityInputs({ ...quantityInputs, [productId]: value })
+      setQuantityInputs({ ...quantityInputs, [productId]: value });
 
-      // Update cart quantity
-      const numValue = value === "" ? 0 : Number.parseFloat(value) || 0
-      setCart(cart.map((item) => (item.id === productId ? { ...item, quantity: numValue } : item)))
+      const numValue = value === "" ? 0 : Number.parseFloat(value) || 0;
+      setCart(
+        cart.map((item) =>
+          item.id === productId ? { ...item, quantity: numValue } : item
+        )
+      );
     }
-  }
+  };
 
   const removeFromCart = (productId: number) => {
-    const product = cart.find((item) => item.id === productId)
-    setCart(cart.filter((item) => item.id !== productId))
-    const newInputs = { ...quantityInputs }
-    delete newInputs[productId]
-    setQuantityInputs(newInputs)
+    const product = cart.find((item) => item.id === productId);
+    setCart(cart.filter((item) => item.id !== productId));
+    const newInputs = { ...quantityInputs };
+    delete newInputs[productId];
+    setQuantityInputs(newInputs);
 
     toast({
       title: "🗑️ Savatdan olib tashlandi",
       description: `${product?.name} savatdan olib tashlandi`,
       className: "border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950",
-    })
-  }
+    });
+  };
 
   const clearCart = () => {
-    setCart([])
-    setQuantityInputs({})
-    setIsCartOpen(false)
+    setCart([]);
+    setQuantityInputs({});
+    setIsCartOpen(false);
     toast({
       title: "🧹 Savat tozalandi",
       description: "Barcha mahsulotlar savatdan olib tashlandi",
       className: "border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-950",
-    })
-  }
+    });
+  };
 
   const getTotalAmount = () => {
-    return cart.reduce((total, item) => total + item.sellingPrice * item.quantity, 0);
+    return cart.reduce(
+      (total, item) => total + item.sellingPrice * item.quantity,
+      0
+    );
   };
 
   const handleCheckout = async () => {
@@ -263,13 +267,13 @@ export default function EmployeePage() {
 
     const payload = {
       items: cart.map((item) => ({
-        productId: item.id, // yoki item.productId agar id boshqa bo‘lsa
+        productId: item.id,
         quantity: item.quantity || 0,
       })),
     };
 
     try {
-      const res = await lord.post(`/api/sales`, payload);
+      await lord.post(`/api/sales`, payload);
 
       toast({
         title: "✅ Buyurtma yuborildi!",
@@ -278,7 +282,6 @@ export default function EmployeePage() {
       });
 
       clearCart();
-
     } catch (error: any) {
       toast({
         title: "❌ Xatolik",

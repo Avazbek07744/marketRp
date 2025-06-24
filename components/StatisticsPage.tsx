@@ -19,6 +19,7 @@ import {
 } from "recharts"
 import { useEffect, useState } from "react"
 import lord from "@/axios"
+import Cookies from "js-cookie"
 
 interface weekly {
     day: string,
@@ -66,77 +67,93 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ data }) => {
     const [categories, setCategories] = useState<category[]>([])
 
 
+    // Boshlang'ich statistika
     useEffect(() => {
-        const shopId = localStorage.getItem("shopId")
+        const shopId = Cookies.get("shopId");
 
         const StatisticaToday = async () => {
             try {
                 const res = await lord.post("/api/sales/statistics/today-total");
-                const stats = res.data;
-                setToday(stats.totalSales.toLocaleString());
+                setToday(res.data.totalSales.toLocaleString());
             } catch (error) {
-                console.error("❌ Statistikani olishda xatolik:", error);
+                console.error("❌ Bugungi statistika olishda xatolik:", error);
             }
-        }; StatisticaToday()
+        };
+
+        const StatisticaWeekly = async () => {
+            if (!shopId) return;
+            const data = {
+                targetDate: new Date(new Date().setDate(new Date().getDate() - 6)).toISOString(),
+                shopId,
+            };
+
+            try {
+                const res = await lord.post("/api/sales/statistics/shop-monthly-revenue", data);
+                setWeekly(res.data.revenue.toLocaleString());
+            } catch (error) {
+                console.error("❌ Oylik statistika olishda xatolik:", error);
+            }
+        };
 
         const StatisticaMonthly = async () => {
+            if (!shopId) return;
             const data = {
                 targetDate: new Date().toISOString(),
                 shopId,
             };
 
             try {
-                const res = await lord.post("/api/sales/statistics/shop-monthly-revenue", data);
-                const stats = res.data;
-                setMonthly(stats.revenue.toLocaleString());
+                const res = await lord.post("/api/sales/statistics/overall-monthly-revenue", data);
+                setMonthly(res.data.revenue.toLocaleString());
             } catch (error) {
-                console.error("❌ Statistikani olishda xatolik:", error);
+                console.error("❌ Oylik statistika olishda xatolik:", error);
             }
-        }; StatisticaMonthly()
+        };
 
         const StatisticaTopProducts = async () => {
             try {
                 const res = await lord.post("/api/sales/statistics/top-selling-products");
                 setTopProducts(res.data);
             } catch (error) {
-                console.error("❌ Statistikani olishda xatolik:", error);
+                console.error("❌ Top mahsulotlarni olishda xatolik:", error);
             }
-        }; StatisticaTopProducts()
+        };
 
-        setLoad(true)
-    }, [])
+        StatisticaToday();
+        StatisticaWeekly();
+        StatisticaMonthly()
+        StatisticaTopProducts();
+        setLoad(true);
+    }, []);
 
+    // Mahsulot va kategoriya ma'lumotlari
     useEffect(() => {
-        const shopId = localStorage.getItem("shopId")
+        if (!load) return;
+
+        const shopId = Cookies.get("shopId");
+        if (!shopId) return;
+
         const StatisticaStockData = async () => {
             try {
                 const res = await lord.get(`/api/product/shop/${shopId}`);
                 setStock(res.data);
             } catch (error) {
-                console.error("❌ Statistikani olishda xatolik:", error);
+                console.error("❌ Mahsulot zaxirasini olishda xatolik:", error);
             }
-        }; StatisticaStockData()
-
-        // const StatisticaMonthlyData = async () => {
-        //     try {
-        //         const res = await lord.get(`/api/product/shop/${shopId}`);
-        //         setOveral(res.data);
-        //     } catch (error) {
-        //         console.error("❌ Statistikani olishda xatolik:", error);
-        //     }
-        // }; StatisticaMonthlyData()
+        };
 
         const StatisticaCategories = async () => {
             try {
                 const res = await lord.get(`/api/categories/shop/${shopId}`);
                 setCategories(res.data);
-            } catch (error: unknown) {
+            } catch (error) {
                 console.error("❌ Kategoriyalarni olishda xatolik:", error);
             }
         };
 
+        StatisticaStockData();
         StatisticaCategories();
-    }, [load])
+    }, [load]);
 
     const getRandomColor = (seed: string) => {
         const hash = Array.from(seed).reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -185,7 +202,7 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ data }) => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-4xl font-bold">8,750,000 so'm</div>
+                            <div className="text-4xl font-bold">{weekly} so'm</div>
                             <p className="text-sm text-blue-100">Oxirgi 7 kun</p>
                         </CardContent>
                     </Card>

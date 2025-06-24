@@ -15,17 +15,16 @@ import {
     Plus,
     Edit,
     Trash2,
-    Beaker,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { Search } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { useLanguage } from "./language-provider"
 import { useEffect, useRef, useState } from "react"
 import lord from "@/axios"
+import Cookies from "js-cookie"
 
 interface categoryType {
     id: string,
@@ -39,53 +38,55 @@ const Categories = () => {
     const categoryRef = useRef<HTMLInputElement>(null);
 
     const [category, setCategory] = useState<categoryType[]>([]);
-    const [shopId, setShopId] = useState<string | null>(null);
-    const [token, setToken] = useState<string | null>(null);
+    const [shopId, setShopId] = useState<string | undefined>(undefined);
+    const [token, setToken] = useState<string | undefined>(undefined);
     const [refetchCount, setRefetchCount] = useState(0);
 
     useEffect(() => {
-        const savedShopId = localStorage.getItem("shopId");
-        const savedToken = localStorage.getItem("token");
+        const savedShopId = Cookies.get("shopId");
+        const savedToken = Cookies.get("token");
 
         setShopId(savedShopId);
         setToken(savedToken);
     }, []);
 
-        useEffect(() => {
+    useEffect(() => {
         if (!token || !shopId) return;
 
-        const getProducts = async () => {
+        const getCategories = async () => {
             try {
                 const res = await lord.get(`/api/categories/shop/${shopId}`);
                 setCategory(res.data);
             } catch (error) {
-                console.error("❌ Mahsulotlarni olishda xatolik:", error);
+                console.error("❌ Kategoriyalarni olishda xatolik:", error);
             }
         };
 
-        getProducts();
+        getCategories();
     }, [token, shopId, refetchCount]);
-
 
     const handleAddCategory = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!token || !shopId) return console.error("Token yoki shopId topilmadi");
 
-        const dto = {
-            name: categoryRef.current?.value?.trim()
-        };
+        const name = categoryRef.current?.value?.trim();
+        if (!name) {
+            return toast({
+                title: "❗️ Nomi bo‘sh bo‘lmasligi kerak",
+                variant: "destructive",
+            });
+        }
 
-        if (!dto.name) return toast({ title: "❗️Nomi bo‘sh bo‘lmasligi kerak", variant: "destructive" });
+        const dto = { name };
 
         try {
-            const response = await lord.post(`${baseUrl}/api/categories`, dto);
-
+            await lord.post(`/api/categories`, dto);
             toast({
                 title: "✅ Qo‘shildi",
-                description: `📦 ${dto.name} categoriyasi qo‘shildi`,
+                description: `📦 ${dto.name} kategoriyasi qo‘shildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error: unknown) {
+        } catch (error) {
             console.error("❌ Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -97,31 +98,39 @@ const Categories = () => {
         }
     };
 
-    const handleEditCategory = async (e: React.FormEvent<HTMLFormElement>, id: string, dateUp: string) => {
+    const handleEditCategory = async (
+        e: React.FormEvent<HTMLFormElement>,
+        id: string,
+        updatedDate: string
+    ) => {
         e.preventDefault();
         if (!token || !shopId) return console.error("Token yoki shopId topilmadi");
 
         const formData = new FormData(e.currentTarget);
-        const entries = Object.fromEntries(formData.entries());
+        const name = formData.get("name")?.toString().trim();
+
+        if (!name) {
+            return toast({
+                title: "❗️ Nomi bo‘sh bo‘lmasligi kerak",
+                variant: "destructive",
+            });
+        }
 
         const dto = {
             id,
-            name: entries.name,
+            name,
             shopId,
-            updatedDate: dateUp,
+            updatedDate,
         };
 
-        if (!dto.name) return toast({ title: "❗️Nomi bo‘sh bo‘lmasligi kerak", variant: "destructive" });
-
         try {
-            const response = await lord.post(`/api/categories/${id}`, dto);
-
+            await lord.post(`/api/categories/${id}`, dto);
             toast({
                 title: "✅ Yangilandi",
-                description: `📦 ${dto.name} categoriyasi yangilandi`,
+                description: `📦 ${dto.name} kategoriyasi yangilandi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error:unknown) {
+        } catch (error) {
             console.error("❌ Xatolik:", error);
             toast({
                 title: "Xatolik",
@@ -134,29 +143,25 @@ const Categories = () => {
     };
 
     const handleDeleteCategory = async (id: string) => {
-        if (!token) return console.error("Token yoki shopId topilmadi");
+        if (!token) return console.error("Token topilmadi");
 
         try {
-            const response = await lord.delete(`/api/categories/${id}`)
-
+            await lord.delete(`/api/categories/${id}`);
             toast({
                 title: "✅ O‘chirildi",
-                description: `📦 kategoriya o‘chirildi`,
+                description: `📦 Kategoriya o‘chirildi`,
                 className: "border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950",
             });
-        } catch (error: unknown) {
-            const err = error as { message?: string };
-
+        } catch (error: any) {
             toast({
                 title: "Xatolik",
-                description: err.message || "Noma'lum xatolik yuz berdi",
+                description: error?.message || "Noma'lum xatolik yuz berdi",
                 variant: "destructive",
             });
         } finally {
             setRefetchCount(prev => prev + 1);
         }
     };
-
 
     return (
         <div>
